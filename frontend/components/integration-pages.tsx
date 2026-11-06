@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Fingerprint, Radio, ShieldCheck, ArrowUpRight } from "lucide-react";
+import { Fingerprint, Radio, ArrowUpRight } from "lucide-react";
 import { useConnection } from "wagmi";
 import { ensV2Root } from "@/lib/ens";
 import {
@@ -286,15 +285,6 @@ export function PrivacyPage() {
 
 export function SettingsPage() {
   const { address, chainId } = useConnection();
-  const notificationSetup = useQuery<{ notificationSetup: string[] }>({
-    queryKey: ["notification-status"],
-    retry: false,
-    queryFn: async () => {
-      const r = await fetch("/api/status", { cache: "no-store" });
-      if (!r.ok) throw new Error("Service setup unavailable");
-      return r.json();
-    },
-  });
   return (
     <>
       <PageHeader

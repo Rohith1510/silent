@@ -161,7 +161,7 @@ export default function Home() {
             </span>
           </div>
           <div className={styles.heroFoot}>
-            <span>BUILT FOR CONTINUITY</span>
+            <span>BUILT FOR CLASSIC</span>
             <span>SCROLL TO EXPLORE ↓</span>
           </div>
         </section>
@@ -194,7 +194,7 @@ export default function Home() {
               </div>
             </div>
             <div className={styles.vaultSculpture} aria-hidden="true">
-              <div className={styles.sculptureOrbit} />
+              {/* <div className={styles.sculptureOrbit} /> */}
               <div className={styles.vaultCube}>
                 <div className={styles.cubeFront}>
                   <ShieldCheck size={58} strokeWidth={1} />

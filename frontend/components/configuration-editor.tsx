@@ -52,8 +52,15 @@ import {
 import { SilentSovereignFactoryAbi } from "@/lib/generated/SilentSovereignFactory";
 import { SilentSovereignVaultAbi } from "@/lib/generated/SilentSovereignVault";
 import { chain, environmentIssues, factoryAddress } from "@/lib/network";
-import { inspectIdentity, rememberIdentity } from "@/lib/ens";
+import {
+  inspectIdentity,
+  registryEntry,
+  rememberIdentity,
+  rememberIdentityHealth,
+  rememberedIdentity,
+} from "@/lib/ens";
 import { IdentityManager } from "./identity-manager";
+import { EnsFamilySetup } from "./ens-family-setup";
 import { transactionError } from "@/lib/transaction";
 import { useProtocol } from "./protocol-provider";
 import { useReadTransport } from "./providers";
@@ -162,6 +169,7 @@ function ConfigurationEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [resolving, setResolving] = useState<string>();
+  const [guardianResolving, setGuardianResolving] = useState<number>();
   const router = useRouter();
   const issues = validateGraph(config, graph, owner);
   const busy = saving || ["signing", "confirming"].includes(transaction.phase);
@@ -223,6 +231,24 @@ function ConfigurationEditor({
     setError("");
     try {
       const result = await inspectIdentity(client, b.identity);
+      if (result.name) {
+        rememberIdentity(result.name, result.address, client.chain.id);
+        try {
+          const entry = await registryEntry(client, result.name);
+          rememberIdentityHealth(
+            {
+              name: result.name,
+              address: result.address,
+              resolver: result.resolver,
+              owner: result.owner,
+              expiry: entry.expiry.toString(),
+            },
+            client.chain.id,
+          );
+        } catch {
+          /* Legacy ENS names may not expose an ENSv2 registry entry. */
+        }
+      }
       update({
         ...config,
         beneficiaries: config.beneficiaries.map((old) =>
@@ -239,6 +265,38 @@ function ConfigurationEditor({
       setError(transactionError(e));
     } finally {
       setResolving(undefined);
+    }
+  }
+  async function resolveGuardian(index: number) {
+    const value = config.guardians[index];
+    if (!value || !client || isAddress(value)) return;
+    setGuardianResolving(index);
+    setError("");
+    try {
+      const result = await inspectIdentity(client, value);
+      if (result.address.toLowerCase() === owner?.toLowerCase())
+        throw new Error("The vault owner cannot also be a guardian.");
+      if (
+        config.guardians.some(
+          (guardian, other) =>
+            other !== index &&
+            isAddress(guardian) &&
+            guardian.toLowerCase() === result.address.toLowerCase(),
+        )
+      )
+        throw new Error("This guardian wallet is already included.");
+      if (result.name)
+        rememberIdentity(result.name, result.address, client.chain.id);
+      change(
+        "guardians",
+        config.guardians.map((guardian, other) =>
+          other === index ? result.address : guardian,
+        ),
+      );
+    } catch (e) {
+      setError(transactionError(e));
+    } finally {
+      setGuardianResolving(undefined);
     }
   }
   async function save() {
@@ -630,7 +688,7 @@ function ConfigurationEditor({
             <input
               disabled={frozen || !isOwner}
               value={g}
-              placeholder="0x… guardian wallet"
+              placeholder="guardian.eth or 0x…"
               onChange={(e) =>
                 change(
                   "guardians",
@@ -640,7 +698,23 @@ function ConfigurationEditor({
                 )
               }
             />
+            {isAddress(g) && (
+              <small className="muted">
+                {rememberedIdentity(getAddress(g), chain.id) !== g
+                  ? `${rememberedIdentity(getAddress(g), chain.id)} · pinned to ${shortAddress(g)}`
+                  : "Pinned guardian wallet"}
+              </small>
+            )}
           </Field>
+          {!isAddress(g) && g && (
+            <button
+              className="button small-button"
+              disabled={!client || guardianResolving !== undefined}
+              onClick={() => resolveGuardian(i)}
+            >
+              {guardianResolving === i ? "Resolving…" : "Resolve ENS"}
+            </button>
+          )}
           <button
             disabled={frozen || !isOwner}
             className="icon-button"
@@ -813,6 +887,7 @@ function ConfigurationEditor({
           vault.
         </Notice>
       )}
+      {mode === "beneficiaries" && <EnsFamilySetup />}
       {mode === "builder" ? (
         <div className="builder-layout" id="inheritance-workspace">
           <div className="canvas-container">
@@ -970,7 +1045,7 @@ function ConfigurationEditor({
         </div>
       ) : mode === "beneficiaries" ? (
         <>
-          <div className="beneficiaries-overview" aria-label="Plan overview">
+          <div id="beneficiary-plan" className="beneficiaries-overview" aria-label="Plan overview">
             <div>
               <Users size={18} />
               <span>
