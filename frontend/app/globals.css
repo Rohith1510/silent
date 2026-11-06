@@ -2013,6 +2013,139 @@ dd {
   margin-top: 0;
   padding: 20px 30px 26px;
 }
+.identity-profile-panel .panel-heading {
+  padding-bottom: 14px;
+}
+.identity-profile-content {
+  padding: 8px 30px 28px;
+}
+.identity-profile-lookup {
+  align-items: end;
+}
+.ens-profile-card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 22px;
+  margin: 8px 0 24px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.ens-profile-avatar {
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--subtle);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.ens-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.ens-profile-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.ens-profile-title h3 {
+  margin-top: 10px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.ens-profile-verification {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.ens-profile-summary > p {
+  margin: 12px 0 15px;
+  line-height: 1.7;
+}
+.ens-profile-summary dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 22px;
+  margin: 0 0 12px;
+}
+.ens-profile-summary dt,
+.ens-profile-summary dd {
+  font-size: 12px;
+}
+.ens-profile-summary dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+.ens-profile-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 22px;
+  margin-top: 10px;
+}
+.ens-profile-fields .field:first-child,
+.ens-profile-fields .field:nth-child(2) {
+  grid-column: span 2;
+}
+.ens-profile-fields textarea {
+  width: 100%;
+  min-height: 94px;
+  resize: vertical;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 14px;
+}
+.ens-profile-fields textarea:focus {
+  outline: none;
+  border-color: #828282;
+  box-shadow: 0 0 0 3px #82828214;
+}
+.ens-profile-fields input:disabled,
+.ens-profile-fields textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.ens-profile-access-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0;
+}
+.ens-profile-access-grid > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
+}
+.ens-profile-access-grid > div > span:first-child {
+  color: var(--muted);
+  font-size: 10px;
+}
+.identity-profile-content > .notice {
+  margin-top: 18px;
+}
+.identity-profile-panel > details {
+  border-top: 1px solid var(--border);
+  margin-top: 0;
+  padding: 20px 30px 26px;
+}
 /* Integrations and setup */
 .integration-grid {
   display: grid;
@@ -2902,6 +3035,40 @@ dd {
   }
   .identity-record-panel > details {
     padding: 18px 20px 22px;
+  }
+  .identity-profile-content {
+    padding: 6px 20px 22px;
+  }
+  .identity-profile-panel > details {
+    padding: 18px 20px 22px;
+  }
+  .ens-profile-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 15px;
+    padding: 16px;
+  }
+  .ens-profile-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 14px;
+  }
+  .ens-profile-title {
+    display: block;
+  }
+  .ens-profile-verification {
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+  .ens-profile-summary dl,
+  .ens-profile-fields {
+    grid-template-columns: 1fr;
+  }
+  .ens-profile-fields .field:first-child,
+  .ens-profile-fields .field:nth-child(2) {
+    grid-column: auto;
+  }
+  .ens-profile-access-grid {
+    grid-template-columns: 1fr 1fr;
   }
   .form-grid {
     grid-template-columns: 1fr;

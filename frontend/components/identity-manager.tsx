@@ -8,7 +8,12 @@ import {
   type Address,
 } from "viem";
 import { normalize } from "viem/ens";
-import { Fingerprint, Search, ShieldCheck } from "lucide-react";
+import {
+  Fingerprint,
+  Image as ImageIcon,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 import {
   findSubregistry,
   inspectIdentity,
@@ -17,13 +22,36 @@ import {
   resolverAbi,
   ethAddressResource,
   addressRecordCall,
+  avatarPreviewUrl,
+  emptyEnsProfile,
+  ensProfileKeys,
+  inspectEnsProfile,
+  profileMulticall,
   rememberIdentity,
+  roleSetText,
+  textRecordResource,
+  textSetterPermissionCall,
+  type EnsProfileKey,
+  type EnsProfileRecords,
 } from "@/lib/ens";
 import { validAddress } from "@/lib/configuration";
 import { transactionError } from "@/lib/transaction";
 import { useReadTransport } from "./providers";
 import { useProtocol } from "./protocol-provider";
 import { Badge, External, Field, Notice, Panel } from "./ui";
+
+const profileLabels: Record<EnsProfileKey, string> = {
+  avatar: "Avatar URI",
+  description: "Public description",
+  url: "Website",
+  "com.twitter": "X / Twitter handle",
+  "com.github": "GitHub handle",
+};
+const emptyProfilePermissions = () =>
+  Object.fromEntries(ensProfileKeys.map((key) => [key, false])) as Record<
+    EnsProfileKey,
+    boolean
+  >;
 
 export function IdentityManager({
   onResolved,
@@ -51,6 +79,25 @@ export function IdentityManager({
   const [delegate, setDelegate] = useState("");
   const [scopeAck, setScopeAck] = useState(false);
   const [parentExpiry, setParentExpiry] = useState<bigint>();
+  const [profileName, setProfileName] = useState("");
+  const [profile, setProfile] = useState<EnsProfileRecords>(emptyEnsProfile);
+  const [savedProfile, setSavedProfile] =
+    useState<EnsProfileRecords>(emptyEnsProfile);
+  const [profileIdentity, setProfileIdentity] =
+    useState<Awaited<ReturnType<typeof inspectIdentity>>>();
+  const [profileResolver, setProfileResolver] = useState<Address>();
+  const [profilePermissions, setProfilePermissions] = useState<
+    Record<EnsProfileKey, boolean>
+  >(emptyProfilePermissions);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [resolvedProfileAvatar, setResolvedProfileAvatar] = useState<
+    string | undefined
+  >();
+  const [profileDelegate, setProfileDelegate] = useState("");
+  const [profileDelegateKey, setProfileDelegateKey] =
+    useState<EnsProfileKey>("avatar");
+  const [profileScopeAck, setProfileScopeAck] = useState(false);
+  const [profilePermissionStatus, setProfilePermissionStatus] = useState("");
   async function lookup() {
     if (!client) return;
     setChecking(true);
@@ -59,6 +106,7 @@ export function IdentityManager({
     try {
       const resolved = await inspectIdentity(client, input.trim());
       setIdentity(resolved);
+      if (resolved.name) setProfileName(resolved.name);
     } catch (e) {
       setError(transactionError(e));
     } finally {
@@ -153,12 +201,15 @@ export function IdentityManager({
         data,
       });
       if (ok) {
-        setInput(`${normalizedLabel}.${checked}`);
+        const createdName = `${normalizedLabel}.${checked}`;
+        setInput(createdName);
         setIdentity(undefined);
-        setRecordName(`${normalizedLabel}.${checked}`);
+        setRecordName(createdName);
         setRecordAddress(heir);
         setRecordResolver(undefined);
         setRecordPermission(false);
+        setProfileName(createdName);
+        setProfileLoaded(false);
       }
     } catch (e) {
       setError(transactionError(e));
@@ -246,13 +297,181 @@ export function IdentityManager({
           );
         setIdentity(result);
         setInput(recordName);
+        setProfileName(recordName);
+        setProfileLoaded(false);
       }
+    } catch (e) {
+      setError(transactionError(e));
+    }
+  }
+  async function loadProfile(name = profileName) {
+    if (!client || !name.trim()) return;
+    setChecking(true);
+    setError("");
+    setProfileLoaded(false);
+    setProfilePermissionStatus("");
+    try {
+      const normalizedName = normalize(name);
+      const result = await inspectEnsProfile(client, normalizedName);
+      if (!result.identity.resolver)
+        throw new Error("This ENS name has no resolver attached.");
+      const permissions = emptyProfilePermissions();
+      if (address) {
+        const root = await client.readContract({
+          address: result.identity.resolver,
+          abi: resolverAbi,
+          functionName: "hasRootRoles",
+          args: [roleSetText, address],
+        });
+        const scoped = await Promise.all(
+          ensProfileKeys.map((key) =>
+            client.readContract({
+              address: result.identity.resolver!,
+              abi: resolverAbi,
+              functionName: "hasRoles",
+              args: [textRecordResource(key), roleSetText, address],
+            }),
+          ),
+        );
+        ensProfileKeys.forEach((key, index) => {
+          permissions[key] = root || scoped[index];
+        });
+      }
+      setProfileName(normalizedName);
+      setProfile(result.records);
+      setSavedProfile(result.records);
+      setProfileIdentity(result.identity);
+      setProfileResolver(result.identity.resolver);
+      setResolvedProfileAvatar(result.avatarUrl);
+      setProfilePermissions(permissions);
+      setProfileLoaded(true);
+    } catch (e) {
+      setProfileIdentity(undefined);
+      setProfileResolver(undefined);
+      setResolvedProfileAvatar(undefined);
+      setProfilePermissions(emptyProfilePermissions());
+      setError(transactionError(e));
+    } finally {
+      setChecking(false);
+    }
+  }
+  async function saveProfile() {
+    if (!client || !profileResolver || !profileLoaded) return;
+    setError("");
+    try {
+      const changedKeys = ensProfileKeys.filter(
+        (key) => profile[key] !== savedProfile[key],
+      );
+      if (!changedKeys.length)
+        throw new Error("Change at least one profile field before saving.");
+      const unauthorized = changedKeys.filter(
+        (key) => !profilePermissions[key],
+      );
+      if (unauthorized.length)
+        throw new Error(
+          `The connected wallet cannot edit: ${unauthorized.map((key) => profileLabels[key]).join(", ")}.`,
+        );
+      const liveResolver = await client.getEnsResolver({
+        name: normalize(profileName),
+      });
+      if (liveResolver?.toLowerCase() !== profileResolver.toLowerCase())
+        throw new Error("Resolver changed. Reload the ENS profile first.");
+      const records = Object.fromEntries(
+        changedKeys.map((key) => [key, profile[key]]),
+      ) as Partial<EnsProfileRecords>;
+      const ok = await execute(`Save ${profileName} ENS profile`, {
+        to: profileResolver,
+        data: profileMulticall(profileName, records),
+      });
+      if (ok) await loadProfile(profileName);
+    } catch (e) {
+      setError(transactionError(e));
+    }
+  }
+  async function writeProfilePermission(operation: "grant" | "revoke") {
+    if (!client || !profileResolver || !validAddress(profileDelegate)) return;
+    setError("");
+    setProfilePermissionStatus("");
+    try {
+      if (!profileScopeAck)
+        throw new Error("Acknowledge the resolver-wide name scope first.");
+      const liveResolver = await client.getEnsResolver({
+        name: normalize(profileName),
+      });
+      if (liveResolver?.toLowerCase() !== profileResolver.toLowerCase())
+        throw new Error("Resolver changed. Reload the ENS profile first.");
+      const delegateAddress = getAddress(profileDelegate);
+      const data =
+        operation === "grant"
+          ? encodeFunctionData({
+              abi: resolverAbi,
+              functionName: "grantSetterRoles",
+              args: [
+                textSetterPermissionCall(profileDelegateKey),
+                delegateAddress,
+              ],
+            })
+          : encodeFunctionData({
+              abi: resolverAbi,
+              functionName: "revokeRoles",
+              args: [
+                textRecordResource(profileDelegateKey),
+                roleSetText,
+                delegateAddress,
+              ],
+            });
+      const ok = await execute(
+        `${operation === "grant" ? "Grant" : "Revoke"} ${profileDelegateKey} editing`,
+        { to: profileResolver, data },
+      );
+      if (!ok) return;
+      const [textRoot, textScoped, addressRoot, addressScoped] =
+        await Promise.all([
+          client.readContract({
+            address: profileResolver,
+            abi: resolverAbi,
+            functionName: "hasRootRoles",
+            args: [roleSetText, delegateAddress],
+          }),
+          client.readContract({
+            address: profileResolver,
+            abi: resolverAbi,
+            functionName: "hasRoles",
+            args: [
+              textRecordResource(profileDelegateKey),
+              roleSetText,
+              delegateAddress,
+            ],
+          }),
+          client.readContract({
+            address: profileResolver,
+            abi: resolverAbi,
+            functionName: "hasRootRoles",
+            args: [1n, delegateAddress],
+          }),
+          client.readContract({
+            address: profileResolver,
+            abi: resolverAbi,
+            functionName: "hasRoles",
+            args: [ethAddressResource, 1n, delegateAddress],
+          }),
+        ]);
+      setProfilePermissionStatus(
+        `${profileLabels[profileDelegateKey]} editing: ${textRoot || textScoped ? "allowed" : "not allowed"}. Ethereum-address editing: ${addressRoot || addressScoped ? "already allowed by a separate grant" : "not allowed"}.`,
+      );
     } catch (e) {
       setError(transactionError(e));
     }
   }
   const busy =
     checking || ["signing", "confirming"].includes(transaction.phase);
+  const profileDirty = ensProfileKeys.some(
+    (key) => profile[key] !== savedProfile[key],
+  );
+  const profileAvatar =
+    profile.avatar === savedProfile.avatar
+      ? resolvedProfileAvatar
+      : avatarPreviewUrl(profile.avatar);
   return (
     <div className="identity-section">
       <Panel
@@ -554,6 +773,285 @@ export function IdentityManager({
           <p className="muted small">
             The wallet must hold the corresponding administrator role. Every
             operation is simulated against the resolver before signing.
+          </p>
+        </details>
+      </Panel>
+      <Panel
+        className="identity-profile-panel"
+        title="Beneficiary ENSv2 profile"
+        description="Add public identity records to an existing subname and delegate individual profile keys without changing vault entitlement."
+      >
+        <div className="identity-profile-content">
+          <div className="form-grid identity-profile-lookup">
+            <Field
+              label="Existing ENSv2 name"
+              hint="Profile data is public. Do not publish private inheritance instructions or contact details."
+            >
+              <input
+                value={profileName}
+                placeholder="heir.your-family.eth"
+                onChange={(e) => {
+                  setProfileName(e.target.value);
+                  setProfileLoaded(false);
+                  setProfilePermissionStatus("");
+                }}
+              />
+            </Field>
+            <button
+              className="button align-end"
+              disabled={!client || !profileName || busy}
+              onClick={() => loadProfile()}
+            >
+              Load onchain profile
+            </button>
+          </div>
+          {profileLoaded && profileIdentity && (
+            <div className="ens-profile-card">
+              <div className="ens-profile-avatar">
+                {profileAvatar ? (
+                  // ENS avatars are user-controlled remote resources.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profileAvatar}
+                    alt={`${profileName} avatar`}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <ImageIcon size={30} />
+                )}
+              </div>
+              <div className="ens-profile-summary">
+                <div className="ens-profile-title">
+                  <div>
+                    <Badge tone="violet">ENSv2 public identity</Badge>
+                    <h3>{profileName}</h3>
+                  </div>
+                  <div className="ens-profile-verification">
+                    <Badge tone="green">Address verified</Badge>
+                    {profileIdentity.owner &&
+                      profileIdentity.owner !== zeroAddress && (
+                        <Badge tone="green">Owner verified</Badge>
+                      )}
+                  </div>
+                </div>
+                <p>
+                  {profile.description || "No public description has been set."}
+                </p>
+                <dl>
+                  <div>
+                    <dt>Pinned recipient</dt>
+                    <dd>
+                      <External hash={profileIdentity.address} kind="address" />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Resolver</dt>
+                    <dd>
+                      {profileResolver && (
+                        <External hash={profileResolver} kind="address" />
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                {profile.url && /^https:\/\//i.test(profile.url) && (
+                  <a
+                    className="inline-link"
+                    href={profile.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open public website
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+          {profileLoaded && (
+            <>
+              <div className="ens-profile-fields">
+                <Field
+                  label="Avatar URI"
+                  hint="Use an HTTPS, ipfs:// or ENSIP-12 compatible avatar URI. HTTPS/IPFS previews contact the image host separately from Anon-RPC."
+                >
+                  <input
+                    value={profile.avatar}
+                    disabled={!profilePermissions.avatar}
+                    placeholder="ipfs://... or https://..."
+                    onChange={(e) =>
+                      setProfile((current) => ({
+                        ...current,
+                        avatar: e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field
+                  label="Public description"
+                  hint={`${profile.description.length}/160 characters`}
+                >
+                  <textarea
+                    value={profile.description}
+                    disabled={!profilePermissions.description}
+                    maxLength={160}
+                    placeholder="A short public beneficiary identity description"
+                    onChange={(e) =>
+                      setProfile((current) => ({
+                        ...current,
+                        description: e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Website">
+                  <input
+                    value={profile.url}
+                    disabled={!profilePermissions.url}
+                    placeholder="https://..."
+                    onChange={(e) =>
+                      setProfile((current) => ({
+                        ...current,
+                        url: e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="X / Twitter handle">
+                  <input
+                    value={profile["com.twitter"]}
+                    disabled={!profilePermissions["com.twitter"]}
+                    placeholder="handle without @"
+                    onChange={(e) =>
+                      setProfile((current) => ({
+                        ...current,
+                        "com.twitter": e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="GitHub handle">
+                  <input
+                    value={profile["com.github"]}
+                    disabled={!profilePermissions["com.github"]}
+                    placeholder="github-user"
+                    onChange={(e) =>
+                      setProfile((current) => ({
+                        ...current,
+                        "com.github": e.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </div>
+              <div className="ens-profile-access-grid">
+                {ensProfileKeys.map((key) => (
+                  <div key={key}>
+                    <span>{profileLabels[key]}</span>
+                    <Badge tone={profilePermissions[key] ? "green" : "neutral"}>
+                      {profilePermissions[key] ? "Editable" : "Read only"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+              <div className="identity-record-actions">
+                <button
+                  className="button primary"
+                  disabled={!profileDirty || busy}
+                  onClick={saveProfile}
+                >
+                  Save profile records in one transaction
+                </button>
+                <button
+                  className="button"
+                  disabled={busy}
+                  onClick={() => loadProfile()}
+                >
+                  Discard changes and reload
+                </button>
+              </div>
+              <Notice>
+                Avatar, description and social records are public presentation
+                metadata. SilentSovereign claims remain bound to the verified
+                wallet address stored in the vault, even if profile records
+                later change.
+              </Notice>
+            </>
+          )}
+        </div>
+        <details>
+          <summary className="advanced-summary">
+            Delegate one ENSv2 profile field
+          </summary>
+          <Notice>
+            ENSv2 scopes this permission to one text key, but the grant applies
+            to that key on every name served by this resolver instance. Use a
+            dedicated resolver when each beneficiary needs isolated control.
+          </Notice>
+          <div className="form-grid">
+            <Field label="Profile field">
+              <select
+                value={profileDelegateKey}
+                onChange={(e) =>
+                  setProfileDelegateKey(e.target.value as EnsProfileKey)
+                }
+              >
+                {ensProfileKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {profileLabels[key]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Delegate wallet">
+              <input
+                value={profileDelegate}
+                onChange={(e) => setProfileDelegate(e.target.value)}
+                placeholder="0xâ€¦"
+              />
+            </Field>
+          </div>
+          <label className="consent-line">
+            <input
+              type="checkbox"
+              checked={profileScopeAck}
+              onChange={(e) => setProfileScopeAck(e.target.checked)}
+            />{" "}
+            I understand this key permission covers every name using this
+            resolver and grants no vault or Ethereum-address authority.
+          </label>
+          <div className="transport-actions">
+            <button
+              className="button"
+              disabled={
+                !profileResolver ||
+                !validAddress(profileDelegate) ||
+                !profileScopeAck ||
+                busy
+              }
+              onClick={() => writeProfilePermission("grant")}
+            >
+              Grant selected profile key
+            </button>
+            <button
+              className="button"
+              disabled={
+                !profileResolver ||
+                !validAddress(profileDelegate) ||
+                !profileScopeAck ||
+                busy
+              }
+              onClick={() => writeProfilePermission("revoke")}
+            >
+              Revoke selected profile key
+            </button>
+          </div>
+          {profilePermissionStatus && (
+            <p className="small identity-record-status">
+              {profilePermissionStatus}
+            </p>
+          )}
+          <p className="muted small">
+            The connected wallet must hold the matching administrator role.
+            Granting a text key never grants Ethereum-address editing.
           </p>
         </details>
       </Panel>
