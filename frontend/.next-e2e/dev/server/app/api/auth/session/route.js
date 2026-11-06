@@ -1,0 +1,12 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/auth/session/route.js")
+R.c("server/chunks/node_modules_1h5ynh7xdmsb0._.js")
+R.c("server/chunks/node_modules_next_dist_1jjctnvuqew5w._.js")
+R.c("server/chunks/node_modules_viem__esm_011wexuq121s3._.js")
+R.c("server/chunks/node_modules_@supabase_auth-js_dist_module_00x2u05974i92._.js")
+R.c("server/chunks/node_modules_@noble_curves_esm_2164tm0-k8fxy._.js")
+R.c("server/chunks/node_modules_ox__esm_16a4b85ewpxov._.js")
+R.c("server/chunks/node_modules_1vzxa4as3aa2k._.js")
+R.c("server/chunks/[root-of-the-server]__0awfgf69h8zbh._.js")
+R.c("server/chunks/_next-internal_server_app_api_auth_session_route_actions_0-ylu5i7oqlzd.js")
+R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/app/api/auth/session/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/app/api/auth/session/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

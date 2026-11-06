@@ -746,21 +746,21 @@ function ConfigurationEditor({
               fitView
               minZoom={0.2}
               maxZoom={1.6}
-              colorMode="dark"
+              colorMode="light"
               defaultEdgeOptions={{
                 type: "smoothstep",
                 animated: true,
-                style: { stroke: "#7260a5", strokeWidth: 1.4 },
+                style: { stroke: "#8a8a8a", strokeWidth: 1.4 },
               }}
               deleteKeyCode={["Backspace", "Delete"]}
             >
-              <Background color="#35313e" gap={22} size={1} />
+              <Background color="#d8d8d8" gap={22} size={1} />
               <Controls showInteractive={false} />
               <MiniMap
                 nodeColor={(n) =>
-                  n.data.kind === "beneficiary" ? "#9581e7" : "#454052"
+                  n.data.kind === "beneficiary" ? "#242424" : "#b5b5b5"
                 }
-                maskColor="#09090b99"
+                maskColor="#f5f5f599"
                 pannable
                 zoomable
               />
