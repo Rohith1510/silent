@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   Check,
   CircleAlert,
+  CircleCheck,
   LoaderCircle,
   ShieldCheck,
   Wallet,
@@ -14,6 +15,8 @@ import {
   cloneElement,
   isValidElement,
   useId,
+  useEffect,
+  useRef,
   useState,
   type ReactElement,
   type ReactNode,
@@ -134,18 +137,142 @@ export function Empty({
 export function Notice({
   children,
   danger = false,
+  popup = false,
+  title,
+  success = false,
 }: {
   children: ReactNode;
   danger?: boolean;
+  popup?: boolean;
+  title?: string;
+  success?: boolean;
 }) {
+  const [details, setDetails] = useState(false);
+  const [dismissed, setDismissed] = useState<ReactNode>(null);
+  const heading =
+    title ||
+    (danger
+      ? "Unable to complete the request"
+      : success
+        ? "Request completed"
+        : "Important information");
   return (
-    <div
-      className={`notice ${danger ? "danger" : ""}`}
-      role={danger ? "alert" : undefined}
+    <>
+      <div
+        className={`notice ${danger ? "danger" : success ? "success" : ""}`}
+        role={danger ? "alert" : success ? "status" : undefined}
+      >
+        {success ? <CircleCheck size={17} /> : <CircleAlert size={17} />}
+        <div className="notice-content">{children}</div>
+        {(danger || popup) && (
+          <button
+            className="notice-details"
+            onClick={() => setDetails(true)}
+            aria-label={`View details: ${heading}`}
+          >
+            Details <ArrowUpRight size={12} />
+          </button>
+        )}
+      </div>
+      {(danger || popup) && (
+        <MessageDialog
+          open={details || (popup && dismissed !== children)}
+          onClose={() => {
+            setDetails(false);
+            setDismissed(children);
+          }}
+          title={heading}
+          tone={danger ? "error" : success ? "success" : "warning"}
+        >
+          {children}
+        </MessageDialog>
+      )}
+    </>
+  );
+}
+
+export function MessageDialog({
+  open,
+  onClose,
+  title,
+  children,
+  tone = "warning",
+  onAfterClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  tone?: "error" | "success" | "warning";
+  onAfterClose?: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const id = useId();
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) {
+      dialog.close();
+      onAfterClose?.();
+    }
+  }, [open, onAfterClose]);
+  return (
+    <dialog
+      ref={ref}
+      className={`alert-dialog ${tone}`}
+      role={tone === "error" ? "alertdialog" : "dialog"}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-message`}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const box = event.currentTarget.getBoundingClientRect();
+        if (
+          event.clientX < box.left ||
+          event.clientX > box.right ||
+          event.clientY < box.top ||
+          event.clientY > box.bottom
+        )
+          onClose();
+      }}
     >
-      <CircleAlert size={17} />
-      <div>{children}</div>
-    </div>
+      <div className="alert-dialog-top">
+        <span className="alert-dialog-icon">
+          {tone === "success" ? (
+            <CircleCheck size={24} />
+          ) : (
+            <CircleAlert size={24} />
+          )}
+        </span>
+        <button
+          className="icon-button"
+          aria-label="Close alert"
+          onClick={onClose}
+        >
+          <X size={19} />
+        </button>
+      </div>
+      <span className="eyebrow">
+        {tone === "error"
+          ? "ACTION REQUIRED"
+          : tone === "success"
+            ? "CONFIRMATION"
+            : "PLEASE REVIEW"}
+      </span>
+      <h2 id={`${id}-title`}>{title}</h2>
+      <div id={`${id}-message`} className="alert-dialog-message">
+        {children}
+      </div>
+      <div className="alert-dialog-footer">
+        <button className="button primary" onClick={onClose}>
+          {tone === "success" ? "Done" : "Understood"}
+        </button>
+      </div>
+    </dialog>
   );
 }
 export function Field({
@@ -283,9 +410,9 @@ export function WalletButton() {
             ))
           )}
           {error && (
-            <p className="error-text" role="alert">
+            <Notice danger popup title="Wallet request unsuccessful">
               {error}
-            </p>
+            </Notice>
           )}
           <small>
             Use an EIP-1193 browser wallet. {chain.name} testnet only.

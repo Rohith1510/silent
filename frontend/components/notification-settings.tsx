@@ -229,9 +229,19 @@ export function NotificationSettings() {
             </>
           )}
           {(error || prefs.error) && (
-            <Notice danger>{error || transactionError(prefs.error)}</Notice>
+            <Notice
+              danger
+              popup={Boolean(error)}
+              title="Email preferences could not be updated"
+            >
+              {error || transactionError(prefs.error)}
+            </Notice>
           )}
-          {message && <Notice>{message}</Notice>}
+          {message && (
+            <Notice success popup title="Email settings updated">
+              {message}
+            </Notice>
+          )}
         </Panel>
         <Panel
           className="notification-panel"
@@ -337,8 +347,16 @@ export function VerifyEmail() {
         >
           Confirm email alerts
         </button>
-        {message && <Notice>{message}</Notice>}
-        {error && <Notice danger>{error}</Notice>}
+        {message && (
+          <Notice success popup title="Email settings updated">
+            {message}
+          </Notice>
+        )}
+        {error && (
+          <Notice danger popup>
+            {error}
+          </Notice>
+        )}
       </Panel>
     </>
   );

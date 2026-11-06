@@ -12,11 +12,17 @@ export function transactionError(error: unknown): string {
   if (/reject|denied|4001/i.test(message))
     return "You declined the request in your wallet. No transaction was confirmed.";
   if (/insufficient funds|exceeds.*balance/i.test(message))
-    return "Your wallet needs more test ETH to cover this amount and network fees.";
+    return "Your wallet has insufficient test ETH for this amount and the network fee. Add test ETH or enter a smaller amount, then try again.";
   if (/chain|network/i.test(message) && /wrong|mismatch|switch/i.test(message))
     return "Switch your wallet to the supported network and try again.";
   if (/timeout|timed out/i.test(message))
-    return "Confirmation timed out. Check the transaction in the explorer before retrying.";
+    return "Transaction confirmation is taking longer than expected. Check its status in the explorer before submitting another request.";
+  if (
+    /failed to fetch|fetch failed|network request failed|ENOTFOUND|ECONNREFUSED|could not resolve/i.test(
+      message,
+    )
+  )
+    return "We could not connect to the network. Check your internet connection and RPC settings, then try again.";
   return message
     .split("\n")
     .filter(Boolean)

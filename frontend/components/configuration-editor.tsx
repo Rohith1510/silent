@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useConnection } from "wagmi";
 import {
@@ -7,6 +7,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges,
   Background,
+  BackgroundVariant,
   Controls,
   Handle,
   MiniMap,
@@ -143,6 +144,7 @@ function ConfigurationEditor({
   mode: "create" | "builder" | "beneficiaries";
   initial: Configuration;
 }) {
+  const edgeGradient = `flow-edge-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const { address, chainId } = useConnection();
   const { client } = useReadTransport();
   const { query, execute, transaction } = useProtocol();
@@ -750,11 +752,38 @@ function ConfigurationEditor({
               defaultEdgeOptions={{
                 type: "smoothstep",
                 animated: true,
-                style: { stroke: "#8a8a8a", strokeWidth: 1.4 },
+                style: { stroke: `url(#${edgeGradient})`, strokeWidth: 1.8 },
               }}
               deleteKeyCode={["Backspace", "Delete"]}
             >
-              <Background color="#d8d8d8" gap={22} size={1} />
+              <svg
+                className="flow-gradient-definitions"
+                aria-hidden="true"
+                width="0"
+                height="0"
+              >
+                <defs>
+                  <linearGradient
+                    id={edgeGradient}
+                    gradientUnits="userSpaceOnUse"
+                    x1="0"
+                    y1="0"
+                    x2="700"
+                    y2="450"
+                  >
+                    <stop offset="0%" stopColor="#375d54" />
+                    <stop offset="55%" stopColor="#86a59a" />
+                    <stop offset="100%" stopColor="#667c77" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <Background
+                variant={BackgroundVariant.Dots}
+                bgColor="#f1f3f2"
+                color="#b9c4bf"
+                gap={22}
+                size={1.35}
+              />
               <Controls showInteractive={false} />
               <MiniMap
                 nodeColor={(n) =>
@@ -917,7 +946,11 @@ function ConfigurationEditor({
           </ul>
         </details>
       )}
-      {error && <Notice danger>{error}</Notice>}
+      {error && !preview && (
+        <Notice danger popup>
+          {error}
+        </Notice>
+      )}
       {preview && (
         <div className="modal-backdrop">
           <div
@@ -980,7 +1013,11 @@ function ConfigurationEditor({
               Recovery authorization is irreversible. The owner can cancel while
               recovery is pending. This software is unaudited and testnet-only.
             </Notice>
-            {error && <p className="error-text">{error}</p>}
+            {error && (
+              <Notice danger popup title="Plan could not be saved">
+                {error}
+              </Notice>
+            )}
             <button
               className="button primary full"
               disabled={busy}

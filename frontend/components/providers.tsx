@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
 import { WagmiProvider } from "wagmi";
@@ -43,26 +44,35 @@ function ReadProvider({ children }: { children: ReactNode }) {
   const [transport, setTransport] = useState<{
     client?: ReadClient;
     privacy: PrivacyStatus;
-  }>(() =>
-    anonEnabled
-      ? {
-          privacy: {
-            mode: "starting",
-            detail: "Starting the official Nox browser worker…",
-          },
-        }
-      : {
-          client: publicReadClient(),
-          privacy: {
-            mode: "public",
-            detail: "Public RPC · network metadata is visible",
-          },
-        },
-  );
+  }>({
+    // Client construction can generate random IDs. Keep prerendering and the
+    // first browser render deterministic; initialize transports after mount.
+    privacy: {
+      mode: "starting",
+      detail: anonEnabled
+        ? "Starting the official Nox browser worker…"
+        : "Initializing public RPC…",
+    },
+  });
   useEffect(() => {
     let disposed = false;
     let close: (() => void) | undefined;
-    if (mode === "public") return;
+    if (mode === "public") {
+      const client = publicReadClient();
+      startTransition(() => {
+        setTransport({
+          client,
+          privacy: {
+            mode: "public",
+            detail:
+              attempt > 0
+                ? "Public RPC selected explicitly · source IP and query metadata may be visible"
+                : "Public RPC · network metadata is visible",
+          },
+        });
+      });
+      return;
+    }
     const status = (privacy: PrivacyStatus) => {
       if (!disposed) setTransport((t) => ({ ...t, privacy }));
     };
@@ -85,11 +95,9 @@ function ReadProvider({ children }: { children: ReactNode }) {
     setMode("public");
     setAttempt((a) => a + 1);
     setTransport({
-      client: publicReadClient(),
       privacy: {
-        mode: "public",
-        detail:
-          "Public RPC selected explicitly · source IP and query metadata may be visible",
+        mode: "starting",
+        detail: "Initializing the selected public RPC transport…",
       },
     });
   };
