@@ -1055,7 +1055,11 @@ export function IdentityManager({
           </p>
         </details>
       </Panel>
-      {error && <Notice danger>{error}</Notice>}
+      {error && (
+        <Notice danger popup>
+          {error}
+        </Notice>
+      )}
     </div>
   );
 }

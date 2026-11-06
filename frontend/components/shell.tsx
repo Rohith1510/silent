@@ -19,8 +19,8 @@ import {
   Vault,
   X,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Brand, Badge, External, WalletButton } from "./ui";
+import { useRef, useState, type ReactNode } from "react";
+import { Brand, Badge, External, WalletButton, MessageDialog } from "./ui";
 import { ProtocolProvider, useProtocol } from "./protocol-provider";
 import { useReadTransport } from "./providers";
 import { chain } from "@/lib/network";
@@ -39,8 +39,22 @@ function ShellContent({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState(false);
   const { privacy } = useReadTransport();
   const { transaction, dismissTransaction } = useProtocol();
+  const lastAction = useRef<HTMLElement | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [dismissedAlert, setDismissedAlert] = useState<
+    typeof transaction | null
+  >(null);
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onFocusCapture={(event) => {
+        if (
+          event.target instanceof HTMLElement &&
+          !event.target.closest(".alert-dialog")
+        )
+          lastAction.current = event.target;
+      }}
+    >
       <aside className={`sidebar ${menu ? "mobile-open" : ""}`}>
         <div className="sidebar-brand">
           <Brand />
@@ -179,7 +193,13 @@ function ShellContent({ children }: { children: ReactNode }) {
                     : "violet"
               }
             >
-              {transaction.phase}
+              {transaction.phase === "signing"
+                ? "Awaiting signature"
+                : transaction.phase === "confirming"
+                  ? "Pending confirmation"
+                  : transaction.phase === "confirmed"
+                    ? "Confirmed"
+                    : "Not completed"}
             </Badge>
             {(transaction.phase === "confirmed" ||
               transaction.phase === "failed") && (
@@ -194,9 +214,9 @@ function ShellContent({ children }: { children: ReactNode }) {
           </div>
           <p>
             {transaction.phase === "signing"
-              ? "Check the details and approve in your wallet."
+              ? "Review the transaction details in your wallet and approve when you are ready."
               : transaction.phase === "confirming"
-                ? "Waiting for an onchain receipt…"
+                ? "Your transaction has been submitted. Waiting for an onchain confirmation."
                 : transaction.phase === "confirmed"
                   ? `Confirmed in block ${transaction.block?.toString()}.`
                   : transaction.error}
@@ -204,8 +224,60 @@ function ShellContent({ children }: { children: ReactNode }) {
           {transaction.hash && (
             <External hash={transaction.hash}>View transaction</External>
           )}
+          {(transaction.phase === "failed" ||
+            transaction.phase === "confirmed") && (
+            <button
+              className="transaction-details-button"
+              onClick={() => setDetailsOpen(true)}
+            >
+              View{" "}
+              {transaction.phase === "confirmed" ? "confirmation" : "details"}{" "}
+              <ArrowUpRight size={13} />
+            </button>
+          )}
         </div>
       )}
+      <MessageDialog
+        open={
+          detailsOpen ||
+          (transaction.phase === "failed" && dismissedAlert !== transaction)
+        }
+        onClose={() => {
+          setDetailsOpen(false);
+          setDismissedAlert(transaction);
+        }}
+        onAfterClose={() => {
+          if (
+            lastAction.current?.isConnected &&
+            !lastAction.current.hasAttribute("disabled")
+          )
+            lastAction.current.focus();
+        }}
+        title={
+          transaction.phase === "confirmed"
+            ? "Transaction confirmed"
+            : "Transaction could not be completed"
+        }
+        tone={transaction.phase === "confirmed" ? "success" : "error"}
+      >
+        <p>
+          {transaction.phase === "confirmed"
+            ? `Your transaction was included in block ${transaction.block?.toString()}. Review the updated vault state before taking another action.`
+            : transaction.error ||
+              "The request could not be completed. Review your wallet and network connection before trying again."}
+        </p>
+        {transaction.label && (
+          <div className="alert-context">
+            <span>Requested action</span>
+            <strong>{transaction.label}</strong>
+          </div>
+        )}
+        {transaction.hash && (
+          <External hash={transaction.hash}>
+            Review transaction on explorer
+          </External>
+        )}
+      </MessageDialog>
     </div>
   );
 }

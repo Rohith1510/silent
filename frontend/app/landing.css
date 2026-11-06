@@ -173,7 +173,7 @@
 .ss-showcase {
   max-width: 1200px;
   margin: 0 auto;
-  border: 1px solid #e2e2e2;
+  border: 1px solid #dfe3e1;
   border-radius: 12px;
   box-shadow: 0 18px 70px #00000007;
   background: #fafafa;
@@ -238,7 +238,7 @@
 .ss-stageCard {
   padding: 22px;
   background: #ffffffed;
-  border: 1px solid #e3e3e3;
+  border: 1px solid #dfe3e1;
   border-radius: 10px;
   box-shadow: 0 8px 25px #00000004;
   z-index: 1;
@@ -290,7 +290,7 @@
   position: absolute;
   width: 235px;
   height: 235px;
-  border: 1px solid #e3e3e3;
+  border: 1px solid #dfe3e1;
   border-radius: 50%;
   box-shadow:
     0 0 0 28px #f6f6f680,
@@ -465,7 +465,7 @@
 .ss-anatomy {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #dfe3e1;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -579,7 +579,7 @@
 }
 .ss-feature {
   background: #fafafa;
-  border: 1px solid #f0f0f0;
+  border: 1px solid #dfe3e1;
   border-radius: 12px;
   padding: 0 28px 28px;
   overflow: hidden;
@@ -627,7 +627,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #dfe3e1;
   background: #fff;
   border-radius: 7px;
   font-size: 10px;
@@ -672,7 +672,7 @@
   font-size: 9px;
   padding: 6px 8px;
   background: #fff;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #dfe3e1;
   border-radius: 5px;
 }
 .ss-fingerprint {
@@ -694,7 +694,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 65px;
-  border: 1px solid #e3e3e3;
+  border: 1px solid #dfe3e1;
   border-radius: 12px;
   background: #fafafa;
   display: flex;

@@ -185,7 +185,7 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   await expect(page.getByRole("dialog")).toContainText("60%");
   await page.getByRole("button", { name: "Confirm & open wallet" }).click();
   await expect(page).toHaveURL(/\/vault$/);
-  await expect(page.locator(".transaction-toast")).toContainText("confirmed");
+  await expect(page.locator(".transaction-toast")).toContainText(/confirmed/i);
   const vault = (
     await client.readContract({
       address: factory,
@@ -229,7 +229,7 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   await expect
     .poll(() => client.getBalance({ address: vault }))
     .toBe(10000000000000000n);
-  await expect(page.locator(".transaction-toast")).toContainText("confirmed");
+  await expect(page.locator(".transaction-toast")).toContainText(/confirmed/i);
   await page.evaluate(() =>
     (
       window as unknown as { __rejectNextTestTransaction: () => void }
@@ -237,6 +237,19 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   );
   await page.getByRole("button", { name: "Deposit to vault" }).click();
   await expect(page.locator(".transaction-toast")).toContainText("declined");
+  const failureDialog = page.getByRole("alertdialog", {
+    name: "Transaction could not be completed",
+  });
+  await expect(failureDialog).toBeVisible();
+  await expect(failureDialog).toContainText("declined");
+  await page.keyboard.press("Escape");
+  await expect(failureDialog).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Deposit to vault" }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "View details", exact: true }).click();
+  await expect(failureDialog).toBeVisible();
+  await failureDialog.getByRole("button", { name: "Understood" }).click();
   expect(await client.getBalance({ address: vault })).toBe(10000000000000000n);
 
   await page
@@ -245,7 +258,7 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   await page
     .getByRole("button", { name: "Submit check-in", exact: true })
     .click();
-  await expect(page.locator(".transaction-toast")).toContainText("confirmed");
+  await expect(page.locator(".transaction-toast")).toContainText(/confirmed/i);
   await warp(
     (await client.readContract({ ...read, functionName: "deadline" })) + 1n,
   );

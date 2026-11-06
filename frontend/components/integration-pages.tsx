@@ -275,7 +275,11 @@ export function PrivacyPage() {
           </a>
         </Panel>
       </div>
-      {error && <Notice danger>{error}</Notice>}
+      {error && (
+        <Notice danger popup>
+          {error}
+        </Notice>
+      )}
       <Panel
         title="What privacy means here"
         description="A narrow promise, with visible limits."

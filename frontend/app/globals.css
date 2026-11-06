@@ -5,7 +5,7 @@
   --surface: #ffffff;
   --surface-2: #f6f6f6;
   --surface-3: #eeeeee;
-  --border: var(--border);
+  --border: #dfe3e1;
   --text: #181818;
   --muted: #666666;
   --subtle: #737373;
@@ -363,6 +363,29 @@ code,
   background: #fff1f2;
   border-color: #efc8ce;
   color: var(--red);
+}
+.notice.success {
+  color: var(--green);
+  background: #f0f8f3;
+  border-color: #cce6d6;
+}
+.notice-content {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notice-details {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 11px;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .panel {
   border: 1px solid var(--border);
@@ -1648,13 +1671,14 @@ dd {
   border: 1px solid #dedede;
   border-radius: 10px;
   overflow: hidden;
-  background: #fafafa;
+  background: #f1f3f2;
 }
 .inheritance-flow {
   position: absolute !important;
   inset: 54px 0 31px;
   width: auto !important;
   height: auto !important;
+  background: #f1f3f2;
 }
 .canvas-toolbar {
   height: 54px;
@@ -1788,16 +1812,16 @@ dd {
 }
 .protocol-node {
   width: 225px;
-  border: 1px solid #d4d4d4;
-  background: #fff;
+  border: 1px solid #cbd6d0;
+  background: linear-gradient(145deg, #fff 25%, #eff5f2 100%);
   border-radius: 10px;
   padding: 15px;
-  box-shadow: 0 3px 12px #00000006;
+  box-shadow: 0 3px 12px #254d3d0a;
   transition: border-color 0.18s;
 }
 .protocol-node.selected {
-  border-color: #333;
-  box-shadow: 0 0 0 3px #0000000d;
+  border-color: #537d6e;
+  box-shadow: 0 0 0 3px #537d6e16;
 }
 .protocol-node.invalid {
   border-color: var(--red);
@@ -1851,7 +1875,7 @@ dd {
   margin-top: 9px;
 }
 .react-flow .react-flow__handle {
-  background: #555;
+  background: #5f8576;
   border: 2px solid #fff;
   width: 9px;
   height: 9px;
@@ -3270,4 +3294,118 @@ dd {
 }
 .beneficiary-onboarding .form-grid {
   grid-template-columns: 1fr;
+}
+
+/* Native top-layer dialogs retain focus, Escape support and background inertness. */
+.alert-dialog {
+  margin: auto;
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 24px 90px #17221c26;
+}
+.alert-dialog::backdrop {
+  background: #18221e55;
+  backdrop-filter: blur(4px);
+}
+.alert-dialog-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.alert-dialog-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ecd8ae;
+  border-radius: 13px;
+  background: #fff8e9;
+  color: var(--amber);
+}
+.alert-dialog.error .alert-dialog-icon {
+  background: #fff1f2;
+  color: var(--red);
+  border-color: #efc8ce;
+}
+.alert-dialog.success .alert-dialog-icon {
+  background: #edf8f1;
+  color: var(--green);
+  border-color: #cae8d5;
+}
+.alert-dialog h2 {
+  margin: 10px 0 14px;
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.7px;
+  line-height: 1.25;
+}
+.alert-dialog-message {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.alert-dialog-message .inline-link {
+  margin-top: 16px;
+}
+.alert-dialog-footer {
+  border-top: 1px solid var(--border);
+  margin-top: 25px;
+  padding-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+.alert-context {
+  display: grid;
+  gap: 4px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafbfa;
+}
+.alert-context > span {
+  font-size: 11px;
+}
+.alert-context > strong {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.transaction-details-button {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-left: 12px;
+  font-size: 11px;
+  color: #3f6658;
+}
+.flow-gradient-definitions {
+  position: absolute;
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .alert-dialog {
+    padding: 23px;
+  }
+  .alert-dialog h2 {
+    font-size: 22px;
+  }
+  .notice-details {
+    font-size: 10px;
+  }
+}
+.vault-selector > .notice {
+  flex-basis: 100%;
+  margin: 0;
 }

@@ -198,7 +198,7 @@ export default function Home() {
               <div className={styles.vaultCube}>
                 <div className={styles.cubeFront}>
                   <ShieldCheck size={58} strokeWidth={1} />
-                  <span>SILENT SOVEREIGN</span>
+                  <span>SILENT.</span>
                   <i />
                 </div>
                 <div className={styles.cubeSide} />
