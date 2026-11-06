@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useConnection } from "wagmi";
 import {
   encodeFunctionData,
@@ -55,7 +55,19 @@ const emptyProfilePermissions = () =>
 
 export function IdentityManager({
   onResolved,
-}: { onResolved?: (name: string, address: Address) => void } = {}) {
+  layout = "stack",
+}: {
+  onResolved?: (name: string, address: Address) => void;
+  layout?: "stack" | "tabs";
+} = {}) {
+  const [activeTool, setActiveTool] = useState(0);
+  const toolId = useId();
+  const tools = [
+    { label: "Find an identity", description: "Resolve and add a beneficiary" },
+    { label: "Create a subname", description: "Register under your ENS name" },
+    { label: "Wallet record", description: "Address records and permissions" },
+    { label: "Public profile", description: "Profile records and delegation" },
+  ];
   const { client } = useReadTransport();
   const { address } = useConnection();
   const { execute, transaction } = useProtocol();
@@ -473,588 +485,677 @@ export function IdentityManager({
       ? resolvedProfileAvatar
       : avatarPreviewUrl(profile.avatar);
   return (
-    <div className="identity-section">
-      <Panel
-        title="Beneficiary identity explorer"
-        description="Resolve real names, inspect their resolver, and verify primary names."
-      >
-        <div className="identity-lookup">
-          <input
-            aria-label="ENS identity to inspect"
-            placeholder="heir.family.eth or 0x…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button
-            className="button"
-            disabled={busy || !client || !input}
-            onClick={lookup}
-          >
-            <Search size={14} />
-            {checking ? "Resolving…" : "Inspect identity"}
-          </button>
+    <div
+      className={`identity-section ${layout === "tabs" ? "identity-tools-tabbed" : ""}`}
+    >
+      {layout === "tabs" && (
+        <div
+          className="identity-tool-tabs"
+          role="tablist"
+          aria-label="ENS identity tools"
+        >
+          {tools.map((tool, index) => (
+            <button
+              key={tool.label}
+              role="tab"
+              id={`${toolId}-tab-${index}`}
+              aria-controls={`${toolId}-panel-${index}`}
+              aria-selected={activeTool === index}
+              tabIndex={activeTool === index ? 0 : -1}
+              onClick={() => setActiveTool(index)}
+              onKeyDown={(event) => {
+                const offsets: Record<string, number> = {
+                  ArrowRight: 1,
+                  ArrowLeft: -1,
+                };
+                if (
+                  !(event.key in offsets) &&
+                  event.key !== "Home" &&
+                  event.key !== "End"
+                )
+                  return;
+                event.preventDefault();
+                const next =
+                  event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? tools.length - 1
+                      : (index + offsets[event.key] + tools.length) %
+                        tools.length;
+                setActiveTool(next);
+                document.getElementById(`${toolId}-tab-${next}`)?.focus();
+              }}
+            >
+              <span className="identity-tool-number">0{index + 1}</span>
+              <span>
+                <strong>{tool.label}</strong>
+                <small>{tool.description}</small>
+              </span>
+            </button>
+          ))}
         </div>
-        {identity && (
-          <div className="identity-result">
-            <Fingerprint size={28} />
-            <div>
-              <Badge tone="violet">{identity.version}</Badge>
-              <h3>{identity.name || "No primary name"}</h3>
-              <dl>
-                <div>
-                  <dt>Pinned address</dt>
-                  <dd>
-                    <External hash={identity.address} kind="address" />
-                  </dd>
-                </div>
-                <div>
-                  <dt>Resolver</dt>
-                  <dd>
-                    {identity.resolver ? (
-                      <External hash={identity.resolver} kind="address" />
-                    ) : (
-                      "Unavailable"
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Registry owner</dt>
-                  <dd>
-                    {identity.owner && identity.owner !== zeroAddress ? (
-                      <External hash={identity.owner} kind="address" />
-                    ) : (
-                      "Not available for this name"
-                    )}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-        )}
-        {identity?.name && onResolved && (
-          <button
-            className="button primary"
-            disabled={busy}
-            onClick={() => {
-              rememberIdentity(
-                identity.name!,
-                identity.address,
-                client!.chain.id,
-              );
-              onResolved(identity.name!, identity.address);
-            }}
-          >
-            Use this verified beneficiary
-          </button>
-        )}
-        <Notice>
-          Only onchain ENS resolution is enabled. CCIP-Read HTTP gateways are
-          disabled to prevent a name lookup from silently bypassing the selected
-          read transport.
-        </Notice>
-      </Panel>
-      <Panel
-        title="Permissioned ENSv2 subnames"
-        description="Register under an existing parent subregistry you are authorized to manage."
+      )}
+
+      <section
+        className="identity-tool-panel"
+        role={layout === "tabs" ? "tabpanel" : undefined}
+        id={`${toolId}-panel-0`}
+        aria-labelledby={layout === "tabs" ? `${toolId}-tab-0` : undefined}
+        hidden={layout === "tabs" && activeTool !== 0}
       >
-        <details open={!!onResolved || undefined}>
-          <summary className="advanced-summary">
-            <ShieldCheck size={16} />
-            Create a delegated beneficiary subname
-          </summary>
-          <div className="form-grid">
-            <Field
-              label="Parent ENS name"
-              hint="The parent owner must first deploy and attach a subregistry in Sepolia ENS Explorer."
-            >
-              <input
-                placeholder="your-family.eth"
-                value={parent}
-                onChange={(e) => {
-                  setParent(e.target.value);
-                  setCanRegister(false);
-                }}
-              />
-            </Field>
-            <button
-              className="button align-end"
-              disabled={!client || !address || busy || !parent}
-              onClick={checkParent}
-            >
-              Check parent & permissions
-            </button>
-          </div>
-          {registry && (
-            <p className="small">
-              Parent subregistry: <External hash={registry} kind="address" />{" "}
-              {canRegister && (
-                <Badge tone="green">Registrar permission verified</Badge>
-              )}
-            </p>
-          )}
-          {parentExpiry !== undefined && (
-            <p className="small muted">
-              Parent expiry:{" "}
-              {new Date(Number(parentExpiry) * 1000).toLocaleString()}. Subnames
-              depend on the parent remaining active.
-            </p>
-          )}
-          <a
-            className="inline-link"
-            href="https://sepolia.explorer.ens.domains/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open ENS Explorer for parent setup
-          </a>
-          <div className="form-grid">
-            <Field label="Subname label">
-              <input
-                placeholder="heir"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-            </Field>
-            <Field label="Beneficiary owner address">
-              <input
-                placeholder="0x…"
-                value={heir}
-                onChange={(e) => setHeir(e.target.value)}
-              />
-            </Field>
-            <Field
-              label="Existing resolver contract"
-              hint="Registration does not create address records or grant resolver permissions."
-            >
-              <input
-                placeholder="0x…"
-                value={resolver}
-                onChange={(e) => setResolver(e.target.value)}
-              />
-            </Field>
-            <Field label="Name expiry">
-              <input
-                type="datetime-local"
-                value={expiry}
-                onChange={(e) => setExpiry(e.target.value)}
-              />
-            </Field>
-          </div>
-          <Notice>
-            The connected wallet must hold the parent subregistry’s registration
-            role. This flow grants the new owner name-level resolver and
-            subregistry roles only. A resolver administrator must configure the
-            beneficiary’s address record separately. Resolve and review the name
-            before adding it to your vault.
-          </Notice>
-          <button
-            className="button primary"
-            disabled={
-              !canRegister ||
-              !label ||
-              !validAddress(heir) ||
-              !validAddress(resolver) ||
-              !expiry ||
-              busy
-            }
-            onClick={register}
-          >
-            Review registration in wallet
-          </button>
-        </details>
-      </Panel>
-      <Panel
-        className="identity-record-panel"
-        title="Set the beneficiary's Ethereum record"
-        description="Name ownership and resolver permissions are separate. Check the connected wallet's actual rights."
-      >
-        <div className="identity-record-content">
-          <div className="form-grid">
-            <Field label="Full ENSv2 name">
-              <input
-                value={recordName}
-                placeholder="heir.your-family.eth"
-                onChange={(e) => {
-                  setRecordName(e.target.value);
-                  setRecordPermission(false);
-                  setRecordResolver(undefined);
-                }}
-              />
-            </Field>
-            <Field label="Beneficiary wallet address">
-              <input
-                value={recordAddress}
-                placeholder="0x…"
-                onChange={(e) => setRecordAddress(e.target.value)}
-              />
-            </Field>
-          </div>
-          <div className="identity-record-actions">
-            <button
-              className="button"
-              disabled={!client || !address || busy || !recordName}
-              onClick={checkRecords}
-            >
-              Inspect resolver permissions
-            </button>
-            <button
-              className="button primary"
-              disabled={
-                !recordPermission || !validAddress(recordAddress) || busy
-              }
-              onClick={() => writeRecord("set")}
-            >
-              Set address and verify resolution
-            </button>
-          </div>
-          {recordResolver && (
-            <p className="small identity-record-status">
-              Resolver: <External hash={recordResolver} kind="address" />{" "}
-              {recordPermission && (
-                <Badge tone="green">Address setter verified</Badge>
-              )}
-            </p>
-          )}
-        </div>
-        <details>
-          <summary className="advanced-summary">
-            Delegate or revoke Ethereum record editing
-          </summary>
-          <Notice>
-            This grants Ethereum-address editing across every name served by
-            this resolver instance. Use a dedicated resolver for a beneficiary
-            if you need isolation. It grants no vault permissions. Root-level
-            grants can still apply after an argument-scoped revocation.
-          </Notice>
-          <Field label="Delegate wallet">
+        <Panel
+          title="Beneficiary identity explorer"
+          description="Resolve real names, inspect their resolver, and verify primary names."
+        >
+          <div className="identity-lookup">
             <input
-              value={delegate}
-              onChange={(e) => setDelegate(e.target.value)}
-              placeholder="0x…"
+              aria-label="ENS identity to inspect"
+              placeholder="heir.family.eth or 0x…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
             />
-          </Field>
-          <label className="consent-line">
-            <input
-              type="checkbox"
-              checked={scopeAck}
-              onChange={(e) => setScopeAck(e.target.checked)}
-            />{" "}
-            I understand this affects all names served by the resolver, not just
-            this subname.
-          </label>
-          <div className="transport-actions">
             <button
               className="button"
-              disabled={
-                !recordResolver ||
-                !validAddress(delegate) ||
-                !scopeAck ||
-                !validAddress(recordAddress) ||
-                busy
-              }
-              onClick={() => writeRecord("grant")}
+              disabled={busy || !client || !input}
+              onClick={lookup}
             >
-              Grant Ethereum setter only
-            </button>
-            <button
-              className="button"
-              disabled={
-                !recordResolver ||
-                !validAddress(delegate) ||
-                !scopeAck ||
-                !validAddress(recordAddress) ||
-                busy
-              }
-              onClick={() => writeRecord("revoke")}
-            >
-              Revoke scoped setter
+              <Search size={14} />
+              {checking ? "Resolving…" : "Inspect identity"}
             </button>
           </div>
-          <p className="muted small">
-            The wallet must hold the corresponding administrator role. Every
-            operation is simulated against the resolver before signing.
-          </p>
-        </details>
-      </Panel>
-      <Panel
-        className="identity-profile-panel"
-        title="Beneficiary ENSv2 profile"
-        description="Add public identity records to an existing subname and delegate individual profile keys without changing vault entitlement."
-      >
-        <div className="identity-profile-content">
-          <div className="form-grid identity-profile-lookup">
-            <Field
-              label="Existing ENSv2 name"
-              hint="Profile data is public. Do not publish private inheritance instructions or contact details."
-            >
-              <input
-                value={profileName}
-                placeholder="heir.your-family.eth"
-                onChange={(e) => {
-                  setProfileName(e.target.value);
-                  setProfileLoaded(false);
-                  setProfilePermissionStatus("");
-                }}
-              />
-            </Field>
-            <button
-              className="button align-end"
-              disabled={!client || !profileName || busy}
-              onClick={() => loadProfile()}
-            >
-              Load onchain profile
-            </button>
-          </div>
-          {profileLoaded && profileIdentity && (
-            <div className="ens-profile-card">
-              <div className="ens-profile-avatar">
-                {profileAvatar ? (
-                  // ENS avatars are user-controlled remote resources.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profileAvatar}
-                    alt={`${profileName} avatar`}
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <ImageIcon size={30} />
-                )}
-              </div>
-              <div className="ens-profile-summary">
-                <div className="ens-profile-title">
-                  <div>
-                    <Badge tone="violet">ENSv2 public identity</Badge>
-                    <h3>{profileName}</h3>
-                  </div>
-                  <div className="ens-profile-verification">
-                    <Badge tone="green">Address verified</Badge>
-                    {profileIdentity.owner &&
-                      profileIdentity.owner !== zeroAddress && (
-                        <Badge tone="green">Owner verified</Badge>
-                      )}
-                  </div>
-                </div>
-                <p>
-                  {profile.description || "No public description has been set."}
-                </p>
+          {identity && (
+            <div className="identity-result">
+              <Fingerprint size={28} />
+              <div>
+                <Badge tone="violet">{identity.version}</Badge>
+                <h3>{identity.name || "No primary name"}</h3>
                 <dl>
                   <div>
-                    <dt>Pinned recipient</dt>
+                    <dt>Pinned address</dt>
                     <dd>
-                      <External hash={profileIdentity.address} kind="address" />
+                      <External hash={identity.address} kind="address" />
                     </dd>
                   </div>
                   <div>
                     <dt>Resolver</dt>
                     <dd>
-                      {profileResolver && (
-                        <External hash={profileResolver} kind="address" />
+                      {identity.resolver ? (
+                        <External hash={identity.resolver} kind="address" />
+                      ) : (
+                        "Unavailable"
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Registry owner</dt>
+                    <dd>
+                      {identity.owner && identity.owner !== zeroAddress ? (
+                        <External hash={identity.owner} kind="address" />
+                      ) : (
+                        "Not available for this name"
                       )}
                     </dd>
                   </div>
                 </dl>
-                {profile.url && /^https:\/\//i.test(profile.url) && (
-                  <a
-                    className="inline-link"
-                    href={profile.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open public website
-                  </a>
-                )}
               </div>
             </div>
           )}
-          {profileLoaded && (
-            <>
-              <div className="ens-profile-fields">
-                <Field
-                  label="Avatar URI"
-                  hint="Use an HTTPS, ipfs:// or ENSIP-12 compatible avatar URI. HTTPS/IPFS previews contact the image host separately from Anon-RPC."
-                >
-                  <input
-                    value={profile.avatar}
-                    disabled={!profilePermissions.avatar}
-                    placeholder="ipfs://... or https://..."
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        avatar: e.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field
-                  label="Public description"
-                  hint={`${profile.description.length}/160 characters`}
-                >
-                  <textarea
-                    value={profile.description}
-                    disabled={!profilePermissions.description}
-                    maxLength={160}
-                    placeholder="A short public beneficiary identity description"
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        description: e.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field label="Website">
-                  <input
-                    value={profile.url}
-                    disabled={!profilePermissions.url}
-                    placeholder="https://..."
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        url: e.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field label="X / Twitter handle">
-                  <input
-                    value={profile["com.twitter"]}
-                    disabled={!profilePermissions["com.twitter"]}
-                    placeholder="handle without @"
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        "com.twitter": e.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-                <Field label="GitHub handle">
-                  <input
-                    value={profile["com.github"]}
-                    disabled={!profilePermissions["com.github"]}
-                    placeholder="github-user"
-                    onChange={(e) =>
-                      setProfile((current) => ({
-                        ...current,
-                        "com.github": e.target.value,
-                      }))
-                    }
-                  />
-                </Field>
-              </div>
-              <div className="ens-profile-access-grid">
-                {ensProfileKeys.map((key) => (
-                  <div key={key}>
-                    <span>{profileLabels[key]}</span>
-                    <Badge tone={profilePermissions[key] ? "green" : "neutral"}>
-                      {profilePermissions[key] ? "Editable" : "Read only"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-              <div className="identity-record-actions">
-                <button
-                  className="button primary"
-                  disabled={!profileDirty || busy}
-                  onClick={saveProfile}
-                >
-                  Save profile records in one transaction
-                </button>
-                <button
-                  className="button"
-                  disabled={busy}
-                  onClick={() => loadProfile()}
-                >
-                  Discard changes and reload
-                </button>
-              </div>
-              <Notice>
-                Avatar, description and social records are public presentation
-                metadata. SilentSovereign claims remain bound to the verified
-                wallet address stored in the vault, even if profile records
-                later change.
-              </Notice>
-            </>
+          {identity?.name && onResolved && (
+            <button
+              className="button primary"
+              disabled={busy}
+              onClick={() => {
+                rememberIdentity(
+                  identity.name!,
+                  identity.address,
+                  client!.chain.id,
+                );
+                onResolved(identity.name!, identity.address);
+              }}
+            >
+              Use this verified beneficiary
+            </button>
           )}
-        </div>
-        <details>
-          <summary className="advanced-summary">
-            Delegate one ENSv2 profile field
-          </summary>
           <Notice>
-            ENSv2 scopes this permission to one text key, but the grant applies
-            to that key on every name served by this resolver instance. Use a
-            dedicated resolver when each beneficiary needs isolated control.
+            Only onchain ENS resolution is enabled. CCIP-Read HTTP gateways are
+            disabled to prevent a name lookup from silently bypassing the
+            selected read transport.
           </Notice>
-          <div className="form-grid">
-            <Field label="Profile field">
-              <select
-                value={profileDelegateKey}
-                onChange={(e) =>
-                  setProfileDelegateKey(e.target.value as EnsProfileKey)
-                }
+        </Panel>
+      </section>
+      <section
+        className="identity-tool-panel"
+        role={layout === "tabs" ? "tabpanel" : undefined}
+        id={`${toolId}-panel-1`}
+        aria-labelledby={layout === "tabs" ? `${toolId}-tab-1` : undefined}
+        hidden={layout === "tabs" && activeTool !== 1}
+      >
+        <Panel
+          title="Permissioned ENSv2 subnames"
+          description="Register under an existing parent subregistry you are authorized to manage."
+        >
+          <details open={!!onResolved || undefined}>
+            <summary className="advanced-summary">
+              <ShieldCheck size={16} />
+              Create a delegated beneficiary subname
+            </summary>
+            <div className="form-grid">
+              <Field
+                label="Parent ENS name"
+                hint="The parent owner must first deploy and attach a subregistry in Sepolia ENS Explorer."
               >
-                {ensProfileKeys.map((key) => (
-                  <option key={key} value={key}>
-                    {profileLabels[key]}
-                  </option>
-                ))}
-              </select>
-            </Field>
+                <input
+                  placeholder="your-family.eth"
+                  value={parent}
+                  onChange={(e) => {
+                    setParent(e.target.value);
+                    setCanRegister(false);
+                  }}
+                />
+              </Field>
+              <button
+                className="button align-end"
+                disabled={!client || !address || busy || !parent}
+                onClick={checkParent}
+              >
+                Check parent & permissions
+              </button>
+            </div>
+            {registry && (
+              <p className="small">
+                Parent subregistry: <External hash={registry} kind="address" />{" "}
+                {canRegister && (
+                  <Badge tone="green">Registrar permission verified</Badge>
+                )}
+              </p>
+            )}
+            {parentExpiry !== undefined && (
+              <p className="small muted">
+                Parent expiry:{" "}
+                {new Date(Number(parentExpiry) * 1000).toLocaleString()}.
+                Subnames depend on the parent remaining active.
+              </p>
+            )}
+            <a
+              className="inline-link"
+              href="https://sepolia.explorer.ens.domains/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open ENS Explorer for parent setup
+            </a>
+            <div className="form-grid">
+              <Field label="Subname label">
+                <input
+                  placeholder="heir"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                />
+              </Field>
+              <Field label="Beneficiary owner address">
+                <input
+                  placeholder="0x…"
+                  value={heir}
+                  onChange={(e) => setHeir(e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Existing resolver contract"
+                hint="Registration does not create address records or grant resolver permissions."
+              >
+                <input
+                  placeholder="0x…"
+                  value={resolver}
+                  onChange={(e) => setResolver(e.target.value)}
+                />
+              </Field>
+              <Field label="Name expiry">
+                <input
+                  type="datetime-local"
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                />
+              </Field>
+            </div>
+            <Notice>
+              The connected wallet must hold the parent subregistry’s
+              registration role. This flow grants the new owner name-level
+              resolver and subregistry roles only. A resolver administrator must
+              configure the beneficiary’s address record separately. Resolve and
+              review the name before adding it to your vault.
+            </Notice>
+            <button
+              className="button primary"
+              disabled={
+                !canRegister ||
+                !label ||
+                !validAddress(heir) ||
+                !validAddress(resolver) ||
+                !expiry ||
+                busy
+              }
+              onClick={register}
+            >
+              Review registration in wallet
+            </button>
+          </details>
+        </Panel>
+      </section>
+      <section
+        className="identity-tool-panel"
+        role={layout === "tabs" ? "tabpanel" : undefined}
+        id={`${toolId}-panel-2`}
+        aria-labelledby={layout === "tabs" ? `${toolId}-tab-2` : undefined}
+        hidden={layout === "tabs" && activeTool !== 2}
+      >
+        <Panel
+          className="identity-record-panel"
+          title="Set the beneficiary's Ethereum record"
+          description="Name ownership and resolver permissions are separate. Check the connected wallet's actual rights."
+        >
+          <div className="identity-record-content">
+            <div className="form-grid">
+              <Field label="Full ENSv2 name">
+                <input
+                  value={recordName}
+                  placeholder="heir.your-family.eth"
+                  onChange={(e) => {
+                    setRecordName(e.target.value);
+                    setRecordPermission(false);
+                    setRecordResolver(undefined);
+                  }}
+                />
+              </Field>
+              <Field label="Beneficiary wallet address">
+                <input
+                  value={recordAddress}
+                  placeholder="0x…"
+                  onChange={(e) => setRecordAddress(e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="identity-record-actions">
+              <button
+                className="button"
+                disabled={!client || !address || busy || !recordName}
+                onClick={checkRecords}
+              >
+                Inspect resolver permissions
+              </button>
+              <button
+                className="button primary"
+                disabled={
+                  !recordPermission || !validAddress(recordAddress) || busy
+                }
+                onClick={() => writeRecord("set")}
+              >
+                Set address and verify resolution
+              </button>
+            </div>
+            {recordResolver && (
+              <p className="small identity-record-status">
+                Resolver: <External hash={recordResolver} kind="address" />{" "}
+                {recordPermission && (
+                  <Badge tone="green">Address setter verified</Badge>
+                )}
+              </p>
+            )}
+          </div>
+          <details>
+            <summary className="advanced-summary">
+              Delegate or revoke Ethereum record editing
+            </summary>
+            <Notice>
+              This grants Ethereum-address editing across every name served by
+              this resolver instance. Use a dedicated resolver for a beneficiary
+              if you need isolation. It grants no vault permissions. Root-level
+              grants can still apply after an argument-scoped revocation.
+            </Notice>
             <Field label="Delegate wallet">
               <input
-                value={profileDelegate}
-                onChange={(e) => setProfileDelegate(e.target.value)}
-                placeholder="0xâ€¦"
+                value={delegate}
+                onChange={(e) => setDelegate(e.target.value)}
+                placeholder="0x…"
               />
             </Field>
-          </div>
-          <label className="consent-line">
-            <input
-              type="checkbox"
-              checked={profileScopeAck}
-              onChange={(e) => setProfileScopeAck(e.target.checked)}
-            />{" "}
-            I understand this key permission covers every name using this
-            resolver and grants no vault or Ethereum-address authority.
-          </label>
-          <div className="transport-actions">
-            <button
-              className="button"
-              disabled={
-                !profileResolver ||
-                !validAddress(profileDelegate) ||
-                !profileScopeAck ||
-                busy
-              }
-              onClick={() => writeProfilePermission("grant")}
-            >
-              Grant selected profile key
-            </button>
-            <button
-              className="button"
-              disabled={
-                !profileResolver ||
-                !validAddress(profileDelegate) ||
-                !profileScopeAck ||
-                busy
-              }
-              onClick={() => writeProfilePermission("revoke")}
-            >
-              Revoke selected profile key
-            </button>
-          </div>
-          {profilePermissionStatus && (
-            <p className="small identity-record-status">
-              {profilePermissionStatus}
+            <label className="consent-line">
+              <input
+                type="checkbox"
+                checked={scopeAck}
+                onChange={(e) => setScopeAck(e.target.checked)}
+              />{" "}
+              I understand this affects all names served by the resolver, not
+              just this subname.
+            </label>
+            <div className="transport-actions">
+              <button
+                className="button"
+                disabled={
+                  !recordResolver ||
+                  !validAddress(delegate) ||
+                  !scopeAck ||
+                  !validAddress(recordAddress) ||
+                  busy
+                }
+                onClick={() => writeRecord("grant")}
+              >
+                Grant Ethereum setter only
+              </button>
+              <button
+                className="button"
+                disabled={
+                  !recordResolver ||
+                  !validAddress(delegate) ||
+                  !scopeAck ||
+                  !validAddress(recordAddress) ||
+                  busy
+                }
+                onClick={() => writeRecord("revoke")}
+              >
+                Revoke scoped setter
+              </button>
+            </div>
+            <p className="muted small">
+              The wallet must hold the corresponding administrator role. Every
+              operation is simulated against the resolver before signing.
             </p>
-          )}
-          <p className="muted small">
-            The connected wallet must hold the matching administrator role.
-            Granting a text key never grants Ethereum-address editing.
-          </p>
-        </details>
-      </Panel>
+          </details>
+        </Panel>
+      </section>
+      <section
+        className="identity-tool-panel"
+        role={layout === "tabs" ? "tabpanel" : undefined}
+        id={`${toolId}-panel-3`}
+        aria-labelledby={layout === "tabs" ? `${toolId}-tab-3` : undefined}
+        hidden={layout === "tabs" && activeTool !== 3}
+      >
+        <Panel
+          className="identity-profile-panel"
+          title="Beneficiary ENSv2 profile"
+          description="Add public identity records to an existing subname and delegate individual profile keys without changing vault entitlement."
+        >
+          <div className="identity-profile-content">
+            <div className="form-grid identity-profile-lookup">
+              <Field
+                label="Existing ENSv2 name"
+                hint="Profile data is public. Do not publish private inheritance instructions or contact details."
+              >
+                <input
+                  value={profileName}
+                  placeholder="heir.your-family.eth"
+                  onChange={(e) => {
+                    setProfileName(e.target.value);
+                    setProfileLoaded(false);
+                    setProfilePermissionStatus("");
+                  }}
+                />
+              </Field>
+              <button
+                className="button align-end"
+                disabled={!client || !profileName || busy}
+                onClick={() => loadProfile()}
+              >
+                Load onchain profile
+              </button>
+            </div>
+            {profileLoaded && profileIdentity && (
+              <div className="ens-profile-card">
+                <div className="ens-profile-avatar">
+                  {profileAvatar ? (
+                    // ENS avatars are user-controlled remote resources.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={profileAvatar}
+                      alt={`${profileName} avatar`}
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <ImageIcon size={30} />
+                  )}
+                </div>
+                <div className="ens-profile-summary">
+                  <div className="ens-profile-title">
+                    <div>
+                      <Badge tone="violet">ENSv2 public identity</Badge>
+                      <h3>{profileName}</h3>
+                    </div>
+                    <div className="ens-profile-verification">
+                      <Badge tone="green">Address verified</Badge>
+                      {profileIdentity.owner &&
+                        profileIdentity.owner !== zeroAddress && (
+                          <Badge tone="green">Owner verified</Badge>
+                        )}
+                    </div>
+                  </div>
+                  <p>
+                    {profile.description ||
+                      "No public description has been set."}
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Pinned recipient</dt>
+                      <dd>
+                        <External
+                          hash={profileIdentity.address}
+                          kind="address"
+                        />
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Resolver</dt>
+                      <dd>
+                        {profileResolver && (
+                          <External hash={profileResolver} kind="address" />
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+                  {profile.url && /^https:\/\//i.test(profile.url) && (
+                    <a
+                      className="inline-link"
+                      href={profile.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open public website
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+            {profileLoaded && (
+              <>
+                <div className="ens-profile-fields">
+                  <Field
+                    label="Avatar URI"
+                    hint="Use an HTTPS, ipfs:// or ENSIP-12 compatible avatar URI. HTTPS/IPFS previews contact the image host separately from Anon-RPC."
+                  >
+                    <input
+                      value={profile.avatar}
+                      disabled={!profilePermissions.avatar}
+                      placeholder="ipfs://... or https://..."
+                      onChange={(e) =>
+                        setProfile((current) => ({
+                          ...current,
+                          avatar: e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field
+                    label="Public description"
+                    hint={`${profile.description.length}/160 characters`}
+                  >
+                    <textarea
+                      value={profile.description}
+                      disabled={!profilePermissions.description}
+                      maxLength={160}
+                      placeholder="A short public beneficiary identity description"
+                      onChange={(e) =>
+                        setProfile((current) => ({
+                          ...current,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Website">
+                    <input
+                      value={profile.url}
+                      disabled={!profilePermissions.url}
+                      placeholder="https://..."
+                      onChange={(e) =>
+                        setProfile((current) => ({
+                          ...current,
+                          url: e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="X / Twitter handle">
+                    <input
+                      value={profile["com.twitter"]}
+                      disabled={!profilePermissions["com.twitter"]}
+                      placeholder="handle without @"
+                      onChange={(e) =>
+                        setProfile((current) => ({
+                          ...current,
+                          "com.twitter": e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="GitHub handle">
+                    <input
+                      value={profile["com.github"]}
+                      disabled={!profilePermissions["com.github"]}
+                      placeholder="github-user"
+                      onChange={(e) =>
+                        setProfile((current) => ({
+                          ...current,
+                          "com.github": e.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                </div>
+                <div className="ens-profile-access-grid">
+                  {ensProfileKeys.map((key) => (
+                    <div key={key}>
+                      <span>{profileLabels[key]}</span>
+                      <Badge
+                        tone={profilePermissions[key] ? "green" : "neutral"}
+                      >
+                        {profilePermissions[key] ? "Editable" : "Read only"}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                <div className="identity-record-actions">
+                  <button
+                    className="button primary"
+                    disabled={!profileDirty || busy}
+                    onClick={saveProfile}
+                  >
+                    Save profile records in one transaction
+                  </button>
+                  <button
+                    className="button"
+                    disabled={busy}
+                    onClick={() => loadProfile()}
+                  >
+                    Discard changes and reload
+                  </button>
+                </div>
+                <Notice>
+                  Avatar, description and social records are public presentation
+                  metadata. SilentSovereign claims remain bound to the verified
+                  wallet address stored in the vault, even if profile records
+                  later change.
+                </Notice>
+              </>
+            )}
+          </div>
+          <details>
+            <summary className="advanced-summary">
+              Delegate one ENSv2 profile field
+            </summary>
+            <Notice>
+              ENSv2 scopes this permission to one text key, but the grant
+              applies to that key on every name served by this resolver
+              instance. Use a dedicated resolver when each beneficiary needs
+              isolated control.
+            </Notice>
+            <div className="form-grid">
+              <Field label="Profile field">
+                <select
+                  value={profileDelegateKey}
+                  onChange={(e) =>
+                    setProfileDelegateKey(e.target.value as EnsProfileKey)
+                  }
+                >
+                  {ensProfileKeys.map((key) => (
+                    <option key={key} value={key}>
+                      {profileLabels[key]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Delegate wallet">
+                <input
+                  value={profileDelegate}
+                  onChange={(e) => setProfileDelegate(e.target.value)}
+                  placeholder="0xâ€¦"
+                />
+              </Field>
+            </div>
+            <label className="consent-line">
+              <input
+                type="checkbox"
+                checked={profileScopeAck}
+                onChange={(e) => setProfileScopeAck(e.target.checked)}
+              />{" "}
+              I understand this key permission covers every name using this
+              resolver and grants no vault or Ethereum-address authority.
+            </label>
+            <div className="transport-actions">
+              <button
+                className="button"
+                disabled={
+                  !profileResolver ||
+                  !validAddress(profileDelegate) ||
+                  !profileScopeAck ||
+                  busy
+                }
+                onClick={() => writeProfilePermission("grant")}
+              >
+                Grant selected profile key
+              </button>
+              <button
+                className="button"
+                disabled={
+                  !profileResolver ||
+                  !validAddress(profileDelegate) ||
+                  !profileScopeAck ||
+                  busy
+                }
+                onClick={() => writeProfilePermission("revoke")}
+              >
+                Revoke selected profile key
+              </button>
+            </div>
+            {profilePermissionStatus && (
+              <p className="small identity-record-status">
+                {profilePermissionStatus}
+              </p>
+            )}
+            <p className="muted small">
+              The connected wallet must hold the matching administrator role.
+              Granting a text key never grants Ethereum-address editing.
+            </p>
+          </details>
+        </Panel>
+      </section>
       {error && <Notice danger>{error}</Notice>}
     </div>
   );

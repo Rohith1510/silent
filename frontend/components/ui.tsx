@@ -277,10 +277,12 @@ export function MessageDialog({
 }
 export function Field({
   label,
+  displayLabel,
   children,
   hint,
 }: {
   label: string;
+  displayLabel?: string;
   children: ReactNode;
   hint?: string;
 }) {
@@ -299,7 +301,16 @@ export function Field({
     : children;
   return (
     <label className="field">
-      <span id={`${id}-label`}>{label}</span>
+      <span id={`${id}-label`}>
+        {displayLabel ? (
+          <>
+            {displayLabel}
+            <span className="sr-only">{`, ${label}`}</span>
+          </>
+        ) : (
+          label
+        )}
+      </span>
       {control}
       {hint && <small id={`${id}-hint`}>{hint}</small>}
     </label>

@@ -23,6 +23,7 @@ import {
   Clock3,
   GitBranch,
   HeartPulse,
+  Fingerprint,
   KeyRound,
   LayoutGrid,
   Maximize2,
@@ -158,11 +159,12 @@ function ConfigurationEditor({
   const [selectedId, setSelectedId] = useState<string>();
   const [step, setStep] = useState(0);
   const [preview, setPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [resolving, setResolving] = useState<string>();
   const router = useRouter();
   const issues = validateGraph(config, graph, owner);
-  const busy = ["signing", "confirming"].includes(transaction.phase);
+  const busy = saving || ["signing", "confirming"].includes(transaction.phase);
   const isOwner = !vault || owner?.toLowerCase() === address?.toLowerCase();
   const frozen = !!vault && query.data?.state !== 0;
   function update(next: Configuration) {
@@ -241,6 +243,7 @@ function ConfigurationEditor({
   }
   async function save() {
     setError("");
+    setSaving(true);
     try {
       if (!isOwner || frozen)
         throw new Error("Only the owner can update an active vault.");
@@ -281,7 +284,6 @@ function ConfigurationEditor({
         for (const b of config.beneficiaries)
           if (!isAddress(b.identity))
             rememberIdentity(b.identity, getAddress(b.address), chain.id);
-        setPreview(false);
         if (vault) {
           const verified = await query.refetch();
           if (verified.data?.config) {
@@ -289,11 +291,105 @@ function ConfigurationEditor({
             setGraph(buildGraph(verified.data.config, verified.data.owner));
           }
         } else router.push("/vault");
+        // Keep review open until the verified configuration has replaced the
+        // saved draft, so a delayed refresh cannot overwrite the next edit.
+        setPreview(false);
       }
     } catch (e) {
       setError(transactionError(e));
+    } finally {
+      setSaving(false);
     }
   }
+  const allocatedBps = config.beneficiaries.reduce(
+    (total, person) => total + person.allocationBps,
+    0,
+  );
+  const addressesSet = config.beneficiaries.filter((person) =>
+    isAddress(person.address),
+  ).length;
+  const issueSection = (node: string) =>
+    ["heartbeat", "guardians", "challenge"].includes(node)
+      ? 1
+      : ["allowance", "emergency"].includes(node)
+        ? 2
+        : 0;
+  function focusSection(node: string) {
+    setStep(issueSection(node));
+    document
+      .getElementById(`${edgeGradient}-editor`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  const onboarding = (
+    <details className="beneficiary-onboarding">
+      <summary className="advanced-summary">
+        <Fingerprint size={20} />
+        <span>
+          <strong >ENS names &amp; profiles</strong>
+          <small>
+            Find an identity, create a subname, or manage wallet records and
+            public profiles.
+          </small>
+        </span>
+        <Plus size={18} className="beneficiary-tools-toggle" />
+      </summary>
+      <IdentityManager
+        layout={mode === "beneficiaries" ? "tabs" : "stack"}
+        onResolved={(name, account) => {
+          if (frozen || !isOwner) {
+            setError("Only the owner can edit an active inheritance plan.");
+            return;
+          }
+          const empty = config.beneficiaries.find(
+            (b) => !b.identity && !b.address,
+          );
+          if (!empty && config.beneficiaries.length >= 16) {
+            setError("The vault supports at most 16 beneficiaries.");
+            return;
+          }
+          if (
+            config.beneficiaries.some(
+              (b) => b.address.toLowerCase() === account.toLowerCase(),
+            )
+          ) {
+            setError("This beneficiary address is already included.");
+            return;
+          }
+          update({
+            ...config,
+            beneficiaries: empty
+              ? config.beneficiaries.map((b) =>
+                  b.id === empty.id
+                    ? {
+                        ...b,
+                        identity: name,
+                        resolvedIdentity: name,
+                        address: account,
+                      }
+                    : b,
+                )
+              : [
+                  ...config.beneficiaries,
+                  {
+                    id: crypto.randomUUID(),
+                    identity: name,
+                    resolvedIdentity: name,
+                    address: account,
+                    allocationBps: Math.max(
+                      0,
+                      10000 -
+                        config.beneficiaries.reduce(
+                          (sum, b) => sum + b.allocationBps,
+                          0,
+                        ),
+                    ),
+                  },
+                ],
+          });
+        }}
+      />
+    </details>
+  );
   const people = (
     <>
       <div className="between">
@@ -314,65 +410,7 @@ function ConfigurationEditor({
         ENS resolves to a pinned wallet address. Future name changes never
         redirect an inheritance.
       </p>
-      <details className="beneficiary-onboarding">
-        <summary className="advanced-summary">
-          Create or inspect an ENSv2 beneficiary identity
-        </summary>
-        <IdentityManager
-          onResolved={(name, account) => {
-            if (frozen || !isOwner) {
-              setError("Only the owner can edit an active inheritance plan.");
-              return;
-            }
-            const empty = config.beneficiaries.find(
-              (b) => !b.identity && !b.address,
-            );
-            if (!empty && config.beneficiaries.length >= 16) {
-              setError("The vault supports at most 16 beneficiaries.");
-              return;
-            }
-            if (
-              config.beneficiaries.some(
-                (b) => b.address.toLowerCase() === account.toLowerCase(),
-              )
-            ) {
-              setError("This beneficiary address is already included.");
-              return;
-            }
-            update({
-              ...config,
-              beneficiaries: empty
-                ? config.beneficiaries.map((b) =>
-                    b.id === empty.id
-                      ? {
-                          ...b,
-                          identity: name,
-                          resolvedIdentity: name,
-                          address: account,
-                        }
-                      : b,
-                  )
-                : [
-                    ...config.beneficiaries,
-                    {
-                      id: crypto.randomUUID(),
-                      identity: name,
-                      resolvedIdentity: name,
-                      address: account,
-                      allocationBps: Math.max(
-                        0,
-                        10000 -
-                          config.beneficiaries.reduce(
-                            (sum, b) => sum + b.allocationBps,
-                            0,
-                          ),
-                      ),
-                    },
-                  ],
-            });
-          }}
-        />
-      </details>
+      {mode !== "beneficiaries" && onboarding}
       {config.beneficiaries.length === 0 && (
         <div className="inline-empty">
           Start with the people you want to protect.
@@ -383,7 +421,7 @@ function ConfigurationEditor({
       )}
       {config.beneficiaries.map((b, i) => (
         <div
-          className={`beneficiary-form ${selectedId === b.id ? "highlighted" : ""}`}
+          className={`beneficiary-form ${mode === "beneficiaries" ? "beneficiary-person-card" : ""} ${selectedId === b.id ? "highlighted" : ""}`}
           key={b.id}
         >
           <div className="between">
@@ -404,71 +442,110 @@ function ConfigurationEditor({
               <Trash2 size={14} />
             </button>
           </div>
-          <Field label={`Beneficiary ${i + 1} identity`}>
-            <input
-              disabled={frozen || !isOwner}
-              placeholder="name.eth or 0x…"
-              value={b.identity}
-              onChange={(e) => {
-                const identity = e.target.value.trim();
-                change(
-                  "beneficiaries",
-                  config.beneficiaries.map((old) =>
-                    old.id === b.id
-                      ? {
-                          ...old,
-                          identity,
-                          address: isAddress(identity)
-                            ? getAddress(identity)
-                            : "",
-                          resolvedIdentity: undefined,
-                        }
-                      : old,
-                  ),
-                );
-              }}
-            />
-          </Field>
-          {b.identity && !isAddress(b.identity) && (
-            <button
-              className="button small-button"
-              disabled={!client || !!resolving}
-              onClick={() => resolve(b.id)}
-            >
-              {resolving === b.id ? "Resolving…" : "Resolve identity"}
-            </button>
-          )}
-          {b.address && (
-            <div className="pinned-address">
-              <Check size={12} />
-              Pinned to {shortAddress(b.address)}
+          {mode === "beneficiaries" && (
+            <div className="beneficiary-person-name">
+              <span>
+                <Users size={18} />
+              </span>
+              <div>
+                <h3>
+                  {b.identity.includes(".")
+                    ? b.identity
+                    : b.address
+                      ? shortAddress(b.address)
+                      : "New beneficiary"}
+                </h3>
+                <p>
+                  {b.address
+                    ? "Wallet address set"
+                    : "Enter a wallet address or resolve an ENS name"}
+                </p>
+              </div>
             </div>
           )}
-          <Field label={`Beneficiary ${i + 1} allocation (%)`}>
-            <input
-              disabled={frozen || !isOwner}
-              type="number"
-              min="0.01"
-              max="100"
-              step="0.01"
-              value={b.allocationBps / 100}
-              onChange={(e) =>
-                change(
-                  "beneficiaries",
-                  config.beneficiaries.map((old) =>
-                    old.id === b.id
-                      ? {
-                          ...old,
-                          allocationBps: Math.round(
-                            Number(e.target.value) * 100,
-                          ),
-                        }
-                      : old,
-                  ),
-                )
-              }
-            />
-          </Field>
+          <div className="beneficiary-person-fields">
+            <div>
+              <Field
+                label={`Beneficiary ${i + 1} identity`}
+                displayLabel={
+                  mode === "beneficiaries"
+                    ? "Wallet address or ENS name"
+                    : undefined
+                }
+              >
+                <input
+                  disabled={frozen || !isOwner}
+                  placeholder="name.eth or 0x…"
+                  value={b.identity}
+                  onChange={(e) => {
+                    const identity = e.target.value.trim();
+                    change(
+                      "beneficiaries",
+                      config.beneficiaries.map((old) =>
+                        old.id === b.id
+                          ? {
+                              ...old,
+                              identity,
+                              address: isAddress(identity)
+                                ? getAddress(identity)
+                                : "",
+                              resolvedIdentity: undefined,
+                            }
+                          : old,
+                      ),
+                    );
+                  }}
+                />
+              </Field>
+              {b.identity && !isAddress(b.identity) && (
+                <button
+                  className="button small-button"
+                  disabled={!client || !!resolving}
+                  onClick={() => resolve(b.id)}
+                >
+                  {resolving === b.id ? "Resolving…" : "Resolve identity"}
+                </button>
+              )}
+              {b.address && (
+                <div className="pinned-address">
+                  <Check size={12} />
+                  Pinned to {shortAddress(b.address)}
+                </div>
+              )}
+            </div>
+            <div className="beneficiary-person-share">
+              <Field
+                label={`Beneficiary ${i + 1} allocation (%)`}
+                displayLabel={
+                  mode === "beneficiaries" ? "Share (%)" : undefined
+                }
+              >
+                <input
+                  disabled={frozen || !isOwner}
+                  type="number"
+                  min="0.01"
+                  max="100"
+                  step="0.01"
+                  value={b.allocationBps / 100}
+                  onChange={(e) =>
+                    change(
+                      "beneficiaries",
+                      config.beneficiaries.map((old) =>
+                        old.id === b.id
+                          ? {
+                              ...old,
+                              allocationBps: Math.round(
+                                Number(e.target.value) * 100,
+                              ),
+                            }
+                          : old,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+            </div>
+          </div>
         </div>
       ))}
       <div className="allocation-total">
@@ -639,6 +716,70 @@ function ConfigurationEditor({
     ) : (
       safeguards
     );
+  const reviewActions = (
+    <>
+      <div className="validation-bar">
+        <div>
+          {issues.length ? (
+            <>
+              <Badge tone="amber">{issues.length} to resolve</Badge>
+              <span>{issues[0].message}</span>
+            </>
+          ) : (
+            <>
+              <Badge tone="green">Plan validated</Badge>
+              <span>
+                {mode === "beneficiaries" && !address
+                  ? "Connect your wallet to review and save this plan."
+                  : "Ready for your review. No changes have been sent."}
+              </span>
+            </>
+          )}
+        </div>
+        <button
+          className="button primary"
+          disabled={
+            issues.length > 0 ||
+            busy ||
+            frozen ||
+            !isOwner ||
+            !address ||
+            environmentIssues.length > 0
+          }
+          onClick={() => setPreview(true)}
+        >
+          <Save size={15} />
+          {vault ? "Review & save plan" : "Review & create vault"}
+        </button>
+      </div>
+      {issues.length > 1 && (
+        <details className="validation-details">
+          <summary>View all configuration checks</summary>
+          <ul>
+            {issues.map((e, i) => (
+              <li key={i}>
+                {e.message}
+                {mode === "beneficiaries" && (
+                  <button
+                    className="button small-button"
+                    onClick={() => focusSection(e.node)}
+                  >
+                    Edit{" "}
+                    {
+                      ["people & shares", "safeguards", "release schedule"][
+                        issueSection(e.node)
+                      ]
+                    }
+                    <ArrowRight size={12} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
   return (
     <>
       <PageHeader
@@ -647,14 +788,14 @@ function ConfigurationEditor({
             ? "A little planning. Lasting protection."
             : mode === "builder"
               ? "Design your legacy."
-              : "Your people, protected."
+              : "Beneficiaries"
         }
         description={
           mode === "builder"
             ? "A visual plan, enforced by your vault. Select any node to edit its rules."
             : mode === "create"
               ? "Choose your people, set your safeguards, and review your plan."
-              : "Manage pinned beneficiary identities, allocations and guardian safeguards."
+              : "Choose who receives your assets and how much they receive. You stay in control until your plan is saved."
         }
         action={
           <Badge tone={vault ? "green" : "violet"}>
@@ -827,6 +968,247 @@ function ConfigurationEditor({
             <div className="config-fields">{selectedFields}</div>
           </aside>
         </div>
+      ) : mode === "beneficiaries" ? (
+        <>
+          <div className="beneficiaries-overview" aria-label="Plan overview">
+            <div>
+              <Users size={18} />
+              <span>
+                <small>People in your plan</small>
+                <strong>
+                  {config.beneficiaries.length}
+                  <em> / 16</em>
+                </strong>
+              </span>
+            </div>
+            <div>
+              <GitBranch size={18} />
+              <span>
+                <small>Total allocated</small>
+                <strong
+                  className={
+                    allocatedBps === 10000
+                      ? "positive"
+                      : allocatedBps > 10000
+                        ? "error-text"
+                        : ""
+                  }
+                >
+                  {allocatedBps / 100}
+                  <em>%</em>
+                </strong>
+              </span>
+            </div>
+            <div>
+              <ShieldCheck size={18} />
+              <span>
+                <small>Wallet addresses set</small>
+                <strong>
+                  {addressesSet}
+                  <em> / {config.beneficiaries.length}</em>
+                </strong>
+              </span>
+            </div>
+          </div>
+          <div className="beneficiaries-layout">
+            <div id={`${edgeGradient}-editor`}>
+              <Panel className="beneficiaries-editor">
+                <div
+                  className="beneficiaries-tab-nav"
+                  aria-label="Plan sections"
+                >
+                  {[
+                    { label: "People & shares", icon: Users },
+                    { label: "Safeguards", icon: ShieldCheck },
+                    { label: "Release schedule", icon: Clock3 },
+                  ].map(({ label, icon: Icon }, index) => (
+                    <button
+                      key={label}
+                      className={step === index ? "active" : ""}
+                      aria-pressed={step === index}
+                      onClick={() => setStep(index)}
+                    >
+                      <Icon size={16} />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="beneficiaries-tab-content">
+                  {step !== 0 && (
+                    <div className="beneficiaries-section-intro">
+                      <span className="eyebrow">
+                        {step === 1
+                          ? "PROTECT YOUR PLAN"
+                          : "CONTROL THE RELEASE"}
+                      </span>
+                      <h2>
+                        {step === 1
+                          ? "Recovery safeguards"
+                          : "When your people receive their share"}
+                      </h2>
+                      <p>
+                        {step === 1
+                          ? "Set your check-in window and choose who can help authorize recovery."
+                          : "Set the initial payment and the recurring release of each beneficiary’s allocation."}
+                      </p>
+                    </div>
+                  )}
+                  {step === 0 ? people : step === 1 ? safeguards : schedule}
+                </div>
+                <div className="beneficiaries-editor-footer">
+                  <span>Changes remain a draft until you review and sign.</span>
+                  <div>
+                    <button
+                      className="button small-button"
+                      disabled={step === 0}
+                      onClick={() => setStep(step - 1)}
+                    >
+                      Back
+                    </button>
+                    {step < 2 && (
+                      <button
+                        className="button primary small-button"
+                        onClick={() => setStep(step + 1)}
+                      >
+                        {step === 0
+                          ? "Next: safeguards"
+                          : "Next: release schedule"}
+                        <ArrowRight size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </Panel>
+              {reviewActions}
+            </div>
+            <aside
+              className="beneficiaries-summary"
+              aria-label="Allocation summary"
+            >
+              <Panel
+                title="Your allocation"
+                description="A live view of the plan you’re editing."
+              >
+                <div className="beneficiaries-distribution">
+                  <div
+                    className="beneficiaries-allocation-meter"
+                    aria-hidden="true"
+                  >
+                    {config.beneficiaries.map((person, index) => (
+                      <span
+                        key={person.id}
+                        style={{
+                          width: `${Math.max(0, Math.min(100, person.allocationBps / 100))}%`,
+                          background: [
+                            "#254f40",
+                            "#789788",
+                            "#aabbb1",
+                            "#4f6c5e",
+                          ][index % 4],
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {config.beneficiaries.length === 0 ? (
+                    <p className="beneficiaries-summary-empty">
+                      Add your first person to start building your allocation.
+                    </p>
+                  ) : (
+                    config.beneficiaries.map((person, index) => (
+                      <div
+                        className="beneficiary-distribution-row"
+                        key={person.id}
+                      >
+                        <span>
+                          <i
+                            style={{
+                              background: [
+                                "#254f40",
+                                "#789788",
+                                "#aabbb1",
+                                "#4f6c5e",
+                              ][index % 4],
+                            }}
+                          />
+                          {person.identity.includes(".")
+                            ? person.identity
+                            : person.address
+                              ? shortAddress(person.address)
+                              : `Beneficiary ${index + 1}`}
+                        </span>
+                        <strong>{person.allocationBps / 100}%</strong>
+                      </div>
+                    ))
+                  )}
+                  <div className="beneficiaries-distribution-total">
+                    <span>Total allocated</span>
+                    <strong
+                      className={
+                        allocatedBps === 10000 ? "positive" : "error-text"
+                      }
+                    >
+                      {allocatedBps / 100}% <small>/ 100%</small>
+                    </strong>
+                  </div>
+                  <p
+                    className="beneficiaries-allocation-hint"
+                    aria-live="polite"
+                  >
+                    {allocatedBps === 10000
+                      ? "All shares are assigned."
+                      : allocatedBps > 10000
+                        ? `Reduce shares by ${(allocatedBps - 10000) / 100}% to continue.`
+                        : `${(10000 - allocatedBps) / 100}% left to assign.`}
+                  </p>
+                </div>
+              </Panel>
+              <Panel
+                className="beneficiaries-plan-context"
+                title="Plan settings"
+              >
+                <dl>
+                  <div>
+                    <dt>Check-in window</dt>
+                    <dd>{secondsLabel(config.heartbeatInterval)}</dd>
+                  </div>
+                  <div>
+                    <dt>Guardian approvals</dt>
+                    <dd>
+                      {config.guardianThreshold} of {config.guardians.length}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Initial release</dt>
+                    <dd>{config.initialBps / 100}% of each share</dd>
+                  </div>
+                </dl>
+                <details className="beneficiaries-save-checklist">
+                  <summary>Before you save</summary>
+                  <ul>
+                    <li>
+                      <Check size={15} />
+                      <span>
+                        Confirm every wallet belongs to the intended person.
+                      </span>
+                    </li>
+                    <li>
+                      <Check size={15} />
+                      <span>Assign exactly 100% across all beneficiaries.</span>
+                    </li>
+                    <li>
+                      <Check size={15} />
+                      <span>Review safeguards and release settings.</span>
+                    </li>
+                  </ul>{" "}
+                </details>
+                <p>
+                  Only assets deposited in this vault are covered. ENS names
+                  stay pinned to the wallet you save.
+                </p>
+              </Panel>
+            </aside>
+          </div>
+        </>
       ) : (
         <div className="editor-layout">
           <Panel className="editor-main">
@@ -906,46 +1288,8 @@ function ConfigurationEditor({
           </div>
         </div>
       )}
-      <div className="validation-bar">
-        <div>
-          {issues.length ? (
-            <>
-              <Badge tone="amber">{issues.length} to resolve</Badge>
-              <span>{issues[0].message}</span>
-            </>
-          ) : (
-            <>
-              <Badge tone="green">Plan validated</Badge>
-              <span>Ready for your review. No changes have been sent.</span>
-            </>
-          )}
-        </div>
-        <button
-          className="button primary"
-          disabled={
-            issues.length > 0 ||
-            busy ||
-            frozen ||
-            !isOwner ||
-            !address ||
-            environmentIssues.length > 0
-          }
-          onClick={() => setPreview(true)}
-        >
-          <Save size={15} />
-          {vault ? "Review & save plan" : "Review & create vault"}
-        </button>
-      </div>
-      {issues.length > 1 && (
-        <details className="validation-details">
-          <summary>View all configuration checks</summary>
-          <ul>
-            {issues.map((e, i) => (
-              <li key={i}>{e.message}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      {mode !== "beneficiaries" && reviewActions}
+      {mode === "beneficiaries" && onboarding}
       {error && !preview && (
         <Notice danger popup>
           {error}

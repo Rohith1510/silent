@@ -11,6 +11,10 @@
   --subtle: #737373;
   --accent: #222222;
   --accent-solid: #181818;
+  --action: #285744;
+  --action-hover: #1f4536;
+  --action-soft: #edf5ef;
+  --action-border: #b6cebe;
   --green: #17734b;
   --amber: #915c0b;
   --red: #b52e3d;
@@ -211,19 +215,19 @@ code,
   border-color: #bdbdbd;
 }
 .button.primary {
-  background: #191919;
-  border-color: #191919;
+  background: var(--action);
+  border-color: var(--action);
   color: #fff;
   box-shadow: 0 2px 3px #0000000a;
 }
 .button.primary:hover:not(:disabled) {
-  background: #333;
-  border-color: #333;
+  background: var(--action-hover);
+  border-color: var(--action-hover);
   transform: translateY(-1px);
 }
 .button.subtle {
-  background: transparent;
-  border-color: #cecece;
+  background: #f7f9f8;
+  border-color: #dce3df;
   color: #383838;
 }
 .button.large {
@@ -2075,6 +2079,7 @@ dd {
 }
 .ens-profile-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
@@ -2096,17 +2101,31 @@ dd {
 }
 .ens-profile-summary dl {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 22px;
   margin: 0 0 12px;
+}
+.ens-profile-summary,
+.ens-profile-title > div {
+  min-width: 0;
+}
+.ens-profile-summary dl > div {
+  display: block;
+  min-width: 0;
+  border: 0;
 }
 .ens-profile-summary dt,
 .ens-profile-summary dd {
   font-size: 12px;
 }
 .ens-profile-summary dd {
-  margin: 4px 0 0;
+  margin: 8px 0 0;
+  text-align: left;
+  max-width: none;
   overflow-wrap: anywhere;
+}
+.identity-profile-content {
+  container-type: inline-size;
 }
 .ens-profile-fields {
   display: grid;
@@ -3408,4 +3427,26 @@ dd {
 .vault-selector > .notice {
   flex-basis: 100%;
   margin: 0;
+}
+
+/* Muted neutral surfaces distinguish disabled actions from active controls. */
+.button:disabled {
+  background: #eef1ef;
+  border-color: #e0e5e1;
+  color: #929b95;
+  opacity: 1;
+  box-shadow: none;
+}
+@container (max-width: 560px) {
+  .ens-profile-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .ens-profile-summary dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .ens-profile-verification {
+    justify-content: flex-start;
+  }
 }
