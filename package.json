@@ -1,0 +1,27 @@
+{
+  "name": "silent-sovereign",
+  "private": true,
+  "scripts": {
+    "compile": "node scripts/compile.mjs",
+    "test:contracts": "node --test --test-concurrency=1 contracts/test/vault.test.mjs",
+    "test:frontend": "tsx --test frontend/tests/*.test.ts",
+    "test": "npm run compile && npm run test:contracts && npm run test:frontend && npm run test:cre",
+    "test:e2e": "playwright test",
+    "test:cre": "node scripts/cre.mjs test",
+    "compile:cre": "node scripts/cre.mjs compile",
+    "dev": "npm --prefix frontend run dev"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.13",
+    "@openzeppelin/contracts": "5.4.0",
+    "@playwright/test": "^1.58.2",
+    "ganache": "7.9.2",
+    "prettier": "^3.9.10",
+    "solc": "0.8.24",
+    "tsx": "^4.20.0",
+    "viem": "^2.35.0"
+  },
+  "optionalDependencies": {
+    "@oven/bun-windows-x64": "^1.4.4"
+  }
+}
