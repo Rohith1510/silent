@@ -1,0 +1,8 @@
+{
+  "name": "silent-sovereign-cre",
+  "private": true,
+  "type": "module",
+  "scripts": { "check": "tsc --noEmit", "test": "bun test workflows", "test:policy": "tsx --test workflows/policy.test.ts", "compile": "cre-compile workflows/recovery/main.ts ../.local/recovery.wasm" },
+  "dependencies": { "@chainlink/cre-sdk": "1.23.0", "viem": "^2.35.0", "zod": "^3.25.0" },
+  "devDependencies": { "typescript": "^5", "tsx": "^4.20.0", "@types/node": "^22" }
+}
