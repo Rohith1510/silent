@@ -1,0 +1,8 @@
+staging-settings:
+  user-workflow:
+    workflow-name: "silent-sovereign-recovery-sepolia"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "../../config/recovery.json"
+    secrets-path: "../../secrets.yaml"

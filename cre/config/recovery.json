@@ -1,0 +1,18 @@
+{
+  "schedule": "0 * * * * *",
+  "chainSelectorName": "ethereum-testnet-sepolia",
+  "chainId": 11155111,
+  "factoryAddress": "0xeFc95969cd687A6CC2Ad94dDA533367c7e2e3899",
+  "receiverAddress": "",
+  "executionMode": "observe",
+  "notifications": {
+    "enabled": true,
+    "endpoint": "https://mount-officially-neon-auctions.trycloudflare.com/api/notifications/dispatch"
+  },
+  "startIndex": 0,
+  "batchSize": 3,
+  "watchVaults": [],
+  "enableEventTriggers": false,
+  "finality": "finalized",
+  "gasLimit": "1500000"
+}

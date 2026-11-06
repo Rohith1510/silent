@@ -1,0 +1,18 @@
+{
+  "schedule": "0 * * * * *",
+  "chainSelectorName": "ethereum-testnet-sepolia",
+  "chainId": 11155111,
+  "factoryAddress": "FILL_WITH_YOUR_DEPLOYED_FACTORY",
+  "receiverAddress": "",
+  "executionMode": "observe",
+  "notifications": {
+    "enabled": false,
+    "endpoint": "https://YOUR_APP_DOMAIN/api/notifications/dispatch"
+  },
+  "startIndex": 0,
+  "batchSize": 3,
+  "watchVaults": [],
+  "enableEventTriggers": false,
+  "finality": "finalized",
+  "gasLimit": "1500000"
+}
