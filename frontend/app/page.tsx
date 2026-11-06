@@ -18,6 +18,7 @@ import {
   Vault,
 } from "lucide-react";
 import { Brand, Badge, WalletButton } from "@/components/ui";
+import { HeroPerspectiveGrid } from "@/components/hero-perspective-grid";
 import "./landing.css";
 
 const styles = {
@@ -126,6 +127,7 @@ export default function Home() {
       </header>
       <main>
         <section className={styles.hero}>
+          <HeroPerspectiveGrid />
           <div className={styles.heroLabel}>
             <span /> YOUR ASSETS. YOUR PEOPLE. YOUR RULES.
           </div>
