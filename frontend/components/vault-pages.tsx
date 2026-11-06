@@ -363,7 +363,7 @@ export function VaultDetailsPage() {
   return (
     <>
       <PageHeader
-        title="Your sovereign vault."
+        title="Your silent vault."
         description="Isolated custody. Transparent accounting. Every asset, verified onchain."
         action={
           <Link className="button" href="/builder">

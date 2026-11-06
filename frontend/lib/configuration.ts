@@ -186,7 +186,7 @@ export function buildGraph(c: Configuration, owner?: string): Graph {
       position: { x: 280, y: 0 },
       data: {
         kind: "vault",
-        label: "Your sovereign vault",
+        label: "Your silent vault",
         detail: `${c.beneficiaries.length} beneficiaries · isolated custody`,
       },
     },

@@ -96,7 +96,7 @@ function ShellContent({ children }: { children: ReactNode }) {
         <div className="sidebar-bottom">
           <div className="quiet-card">
             <ShieldCheck size={20} />
-            <strong>Sovereignty is a plan.</strong>
+            <strong>A future, protected.</strong>
             <p>Give the people you trust a path forward.</p>
             <Link href="/create">
               Create an inheritance plan <ArrowUpRight size={13} />

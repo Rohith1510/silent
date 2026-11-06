@@ -68,7 +68,7 @@ export async function challenge(request: Request) {
     issuedAt: new Date(),
     expirationTime: expires,
     statement:
-      "Sign in to SilentSovereign notification preferences. This does not authorize any blockchain transaction.",
+      "Sign in to manage your silent notification preferences. This does not authorize any blockchain transaction.",
   });
   checked(
     await database()

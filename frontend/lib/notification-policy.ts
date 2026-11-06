@@ -53,7 +53,7 @@ export const notificationText: Record<
 > = {
   deadline_reminder: {
     subject: "Your vault check-in is approaching",
-    text: "Your check-in deadline is within 24 hours. Open SilentSovereign to review the deadline and check in using your wallet.",
+    text: "Your check-in deadline is within 24 hours. Open silent to review the deadline and check in using your wallet.",
   },
   recovery_started: {
     subject: "Review a recovery request",
@@ -61,10 +61,10 @@ export const notificationText: Record<
   },
   guardian_action: {
     subject: "A vault needs guardian review",
-    text: "A recovery request is pending and guardian quorum has not been reached. Open SilentSovereign and review the request before deciding whether to approve with your guardian wallet.",
+    text: "A recovery request is pending and guardian quorum has not been reached. Open silent and review the request before deciding whether to approve with your guardian wallet.",
   },
   inheritance_available: {
     subject: "Review your inheritance allocation",
-    text: "Recovery has been authorized. Open SilentSovereign to check your currently claimable allocation. Release schedules and additional emergency conditions still apply.",
+    text: "Recovery has been authorized. Open silent to check your currently claimable allocation. Release schedules and additional emergency conditions still apply.",
   },
 };

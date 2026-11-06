@@ -124,7 +124,7 @@ export async function subscribe(request: Request) {
   try {
     await sendEmail(
       email,
-      "Confirm your SilentSovereign email alerts",
+      "Confirm your silent email alerts",
       `You requested optional vault email alerts. Confirm within 30 minutes:\n\n${appOrigin()}/notifications/verify#${verification}\n\nIf you did not request this, ignore it. No assets or permissions change.`,
       `verify-${inserted.id}`,
     );

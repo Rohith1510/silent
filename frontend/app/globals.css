@@ -460,28 +460,30 @@ code,
   white-space: nowrap;
   letter-spacing: -0.4px;
 }
-.brand-light {
-  font-weight: 400;
-  color: #333;
-}
-.brand small {
+.brand-logo {
+  /* Frame the supplied artwork without its surrounding transparent canvas. */
+  position: relative;
   display: block;
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 2.1px;
-  color: #777;
-  margin-top: 7px;
+  width: 154px;
+  aspect-ratio: 770 / 290;
+  overflow: hidden;
+  flex: none;
 }
-.brand-mark {
-  width: 34px;
-  height: 36px;
-  border-radius: 9px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #191919;
-  border: 1px solid var(--border);
-  color: #fff;
+.brand-logo img {
+  position: absolute;
+  width: 259.74026%;
+  max-width: none;
+  height: auto;
+  left: -81.81818%;
+  top: -294.82759%;
+}
+.brand-logo-compact {
+  width: 38px;
+  aspect-ratio: 285 / 290;
+}
+.brand-logo-compact img {
+  width: 701.75439%;
+  left: -221.05263%;
 }
 .wallet-control {
   position: relative;
@@ -553,9 +555,8 @@ code,
 .sidebar-brand .brand {
   font-size: 15px;
 }
-.sidebar-brand .brand-mark {
-  width: 31px;
-  height: 33px;
+.sidebar-brand .brand-logo {
+  width: 158px;
 }
 .workspace-selector {
   display: flex;

@@ -24,7 +24,7 @@ export function checked<T>({
   if (error)
     throw new HttpError(
       503,
-      "Database unavailable. Apply the SilentSovereign migration and verify server credentials.",
+      "Database unavailable. Apply the silent migration and verify server credentials.",
     );
   return data as NonNullable<T>;
 }

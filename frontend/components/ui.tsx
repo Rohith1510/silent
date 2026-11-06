@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -30,16 +31,17 @@ import { transactionError } from "@/lib/transaction";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="brand" aria-label="SilentSovereign home">
-      <span className="brand-mark">
-        <ShieldCheck size={22} strokeWidth={1.7} />
+    <Link href="/" className="brand" aria-label="silent home">
+      <span className={`brand-logo ${compact ? "brand-logo-compact" : ""}`}>
+        <Image
+          src="/silent-logo.png"
+          alt="silent."
+          width={2000}
+          height={2000}
+          sizes={compact ? "200px" : "400px"}
+          preload
+        />
       </span>
-      {!compact && (
-        <span>
-          Silent<span className="brand-light">Sovereign</span>
-          <small>A FUTURE, PROTECTED</small>
-        </span>
-      )}
     </Link>
   );
 }

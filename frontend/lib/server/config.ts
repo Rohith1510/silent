@@ -76,7 +76,7 @@ export async function endpoint(action: () => Promise<Response>) {
       return response({ error: error.message }, error.status);
     // Never expose database/provider errors, credentials or contact details to visitors.
     console.error(
-      "SilentSovereign server request failed",
+      "silent server request failed",
       error instanceof Error ? error.name : "UnknownError",
     );
     return response(

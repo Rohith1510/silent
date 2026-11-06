@@ -3,7 +3,7 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SilentSovereign — A future, protected",
+  title: "silent. — A future, protected",
   description:
     "A noncustodial inheritance and emergency recovery protocol. Your assets, your people, your rules. Unaudited. Testnet only.",
 };
