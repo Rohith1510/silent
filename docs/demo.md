@@ -39,18 +39,20 @@ Deploy `SilentSovereignFactory` in Remix and configure `frontend/.env.local` as 
 
 19. On Beneficiaries, inspect your actual registered Sepolia name. Confirm the resolved address, resolver and ownership information where available. Run Privacy's actual v2 deployment probe; do not infer live support just from the sponsor name.
 20. For `heir.your-parent.eth`, own/control a real parent and attach a v2 subregistry using the ENS app. The wallet must actually hold its ROLE_REGISTRAR. Enter parent and check permissions. Enter label, B1 owner, existing resolver and expiry, then approve the genuine registration transaction. Configure its address record through the resolver's authorized account. Resolve and review the name before registering that beneficiary in an ACTIVE vault.
-21. A name record change after registration does not alter the pinned vault address. An owner-authorized configuration transaction is required to change the beneficiary account. This MVP disables offchain CCIP gateways, so only supported onchain-resolved names work.
+21. Load the existing subname in **Beneficiary ENSv2 profile**. Add a public avatar URI and description, then save the changed fields through one real resolver `multicall` transaction. Refresh and prove the profile is read back from ENS rather than local storage.
+22. Grant the beneficiary only the `avatar` text-key permission. From the beneficiary wallet, update the avatar and verify the write succeeds; show that the same wallet has no Ethereum-address setter permission. Revoke the avatar permission and show that a later simulated write is rejected. Use a dedicated resolver if this delegation must not affect other names.
+23. A name record or profile change after registration does not alter the pinned vault address. An owner-authorized configuration transaction is required to change the beneficiary account. This MVP disables offchain CCIP gateways, so only supported onchain-resolved names work. Remote avatar loading is outside Anon-RPC.
 
 ## Anon-RPC demonstration
 
-22. Set `NEXT_PUBLIC_ANON_RPC_ENABLED=true`, restart/rebuild, use a browser supporting the official harness and WebRTC, and open Privacy. Wait for the actual worker/hash/chain probe. Run the actual RPC request and record the returned block and successful transport timestamp.
-23. If the Nox network, worker, bootstrap or RPC is unavailable, record failure honestly. Do not use the passthrough worker or relabel a public request as anonymous. Check-ins and claims remain public transactions and wallet traffic remains separate.
+24. Set `NEXT_PUBLIC_ANON_RPC_ENABLED=true`, restart/rebuild, use a browser supporting the official harness and WebRTC, and open Privacy. Wait for the actual worker/hash/chain probe. Run the actual RPC request and record the returned block and successful transport timestamp.
+25. If the Nox network, worker, bootstrap or RPC is unavailable, record failure honestly. Do not use the passthrough worker or relabel a public request as anonymous. Check-ins and claims remain public transactions and wallet traffic remains separate.
 
 ## CRE demonstration
 
-24. Complete `cre/README.md`: correct receiver/forwarder deployment, CLI login, funding, config and workflow registration/activation.
-25. Run authenticated CLI simulation first without broadcasting, then an explicitly approved write simulation or DON execution. Capture actual execution IDs/logs and onchain `AutomationDelivered` plus vault state transitions.
-26. Demonstrate that an expired deadline can trigger only a request. Finalization still requires the genuine owner challenge window and guardian quorum. CRE never submits guardian approvals or claims.
+26. Complete `cre/README.md`: correct receiver/forwarder deployment, CLI login, funding, config and workflow registration/activation.
+27. Run authenticated CLI simulation first without broadcasting, then an explicitly approved write simulation or DON execution. Capture actual execution IDs/logs and onchain `AutomationDelivered` plus vault state transitions.
+28. Demonstrate that an expired deadline can trigger only a request. Finalization still requires the genuine owner challenge window and guardian quorum. CRE never submits guardian approvals or claims.
 
 If prerequisites are unavailable, show the implementation and exact blocker, not a fake execution log.
 

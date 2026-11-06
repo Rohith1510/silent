@@ -23,11 +23,30 @@ export const registryAbi = parseAbi([
 ]);
 export const resolverAbi = parseAbi([
   "function setAddress(bytes name,uint256 coinType,bytes value)",
+  "function setText(bytes name,string key,string value)",
+  "function multicall(bytes[] data) returns (bytes[])",
   "function grantSetterRoles(bytes setter,address account)",
   "function revokeRoles(uint256 resource,uint256 roleBitmap,address account)",
   "function hasRootRoles(uint256 roleBitmap,address account) view returns (bool)",
   "function hasRoles(uint256 resource,uint256 roleBitmap,address account) view returns (bool)",
 ]);
+export const ensProfileKeys = [
+  "avatar",
+  "description",
+  "url",
+  "com.twitter",
+  "com.github",
+] as const;
+export type EnsProfileKey = (typeof ensProfileKeys)[number];
+export type EnsProfileRecords = Record<EnsProfileKey, string>;
+export const emptyEnsProfile = (): EnsProfileRecords => ({
+  avatar: "",
+  description: "",
+  url: "",
+  "com.twitter": "",
+  "com.github": "",
+});
+export const roleSetText = 1n << 4n;
 export const ethAddressResource = BigInt(
   keccak256(encodeAbiParameters([{ type: "uint256" }], [60n])),
 );
@@ -37,6 +56,54 @@ export function addressRecordCall(name: string, account: Address) {
     functionName: "setAddress",
     args: [toHex(packetToBytes(normalize(name))), 60n, account],
   });
+}
+export function textRecordResource(key: EnsProfileKey) {
+  return BigInt(keccak256(toHex(key)));
+}
+export function textRecordCall(
+  name: string,
+  key: EnsProfileKey,
+  value: string,
+) {
+  const normalized = normalize(name);
+  if (key === "description" && value.length > 160)
+    throw new Error("ENS descriptions must be 160 characters or fewer.");
+  if (value.length > 2048)
+    throw new Error(`${key} is too long for this profile editor.`);
+  return encodeFunctionData({
+    abi: resolverAbi,
+    functionName: "setText",
+    args: [toHex(packetToBytes(normalized)), key, value],
+  });
+}
+export function textSetterPermissionCall(key: EnsProfileKey) {
+  return encodeFunctionData({
+    abi: resolverAbi,
+    functionName: "setText",
+    // ENSv2 derives the role from the selector and key. Name and value are ignored.
+    args: ["0x", key, ""],
+  });
+}
+export function profileMulticall(
+  name: string,
+  records: Partial<EnsProfileRecords>,
+) {
+  const calls = ensProfileKeys
+    .filter((key) => records[key] !== undefined)
+    .map((key) => textRecordCall(name, key, records[key]!));
+  if (!calls.length) throw new Error("Choose at least one ENS profile record.");
+  return encodeFunctionData({
+    abi: resolverAbi,
+    functionName: "multicall",
+    args: [calls],
+  });
+}
+export function avatarPreviewUrl(value: string) {
+  const avatar = value.trim();
+  if (/^https:\/\//i.test(avatar)) return avatar;
+  if (/^ipfs:\/\//i.test(avatar))
+    return `https://ipfs.io/ipfs/${avatar.slice("ipfs://".length).replace(/^ipfs\//, "")}`;
+  return undefined;
 }
 export async function registryEntry(client: ReadClient, name: string) {
   const labels = normalize(name).split(".");
@@ -167,4 +234,31 @@ export async function inspectIdentity(client: ReadClient, input: string) {
     /* Migrated and legacy names may resolve without a v2 ownership entry. */
   }
   return { address, name: normalize(name), resolver, owner, version };
+}
+export async function inspectEnsProfile(client: ReadClient, input: string) {
+  const identity = await inspectIdentity(client, input);
+  if (!identity.name)
+    throw new Error("An ENS name is required to load public profile records.");
+  const values = await Promise.all(
+    ensProfileKeys.map((key) =>
+      client.getEnsText({ name: identity.name!, key }),
+    ),
+  );
+  const records = Object.fromEntries(
+    ensProfileKeys.map((key, index) => [key, values[index] || ""]),
+  ) as EnsProfileRecords;
+  let avatarUrl = avatarPreviewUrl(records.avatar);
+  if (records.avatar) {
+    try {
+      avatarUrl =
+        (await client.getEnsAvatar({ name: identity.name })) || avatarUrl;
+    } catch {
+      // The raw onchain record remains valid even if NFT metadata or a remote image is unavailable.
+    }
+  }
+  return {
+    identity,
+    records,
+    avatarUrl,
+  };
 }

@@ -24,7 +24,7 @@ export async function sendEmail(
   );
   if (error || !data?.id) {
     const failure = emailFailure(error);
-    console.warn("SilentSovereign email acceptance failed", {
+    console.warn("silent email acceptance failed", {
       reason: failure.reason,
       status: error?.statusCode ?? null,
     });

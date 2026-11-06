@@ -1,6 +1,6 @@
-# SilentSovereign frontend
+# silent. frontend
 
-This is the original Next.js application, extended in place with the SilentSovereign protocol UI. React Flow was retained; no second app was created.
+This is the original Next.js application, extended in place with the silent protocol UI. React Flow was retained; no second app was created.
 
 Use the repository [README](../README.md) for setup and verification, [Remix deployment guide](../contracts/remix-deployment.md) for contracts, and [demo walkthrough](../docs/demo.md) for the real testnet flow.
 

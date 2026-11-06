@@ -275,53 +275,11 @@ export function PrivacyPage() {
           </a>
         </Panel>
       </div>
-      {error && <Notice danger>{error}</Notice>}
-      <Panel
-        title="What privacy means here"
-        description="A narrow promise, with visible limits."
-      >
-        <div className="privacy-boundaries">
-          <div>
-            <h3>
-              <ShieldCheck size={17} />
-              Supported protection
-            </h3>
-            <p>
-              When enabled and healthy, contract reads, balances, event queries,
-              simulations and receipt lookups use the selected official
-              hash-verified worker. Network metadata protection depends on the
-              anonymizing network.
-            </p>
-            <p>
-              The harness isolates its worker in a sandboxed iframe. It has no
-              wallet signing access.
-            </p>
-          </div>
-          <div>
-            <h3>
-              <Fingerprint size={17} />
-              What remains visible
-            </h3>
-            <p>
-              Your wallet address, deposits, beneficiaries, guardian votes,
-              claims and check-ins are public onchain. The app host, wallet,
-              bootstrap RPC and network entry peers can still observe parts of
-              your connection.
-            </p>
-            <p>
-              A public RPC is explicitly labeled. Anon-RPC failure blocks its
-              reads; it never silently downgrades. Wallet transport remains
-              separate.
-            </p>
-          </div>
-        </div>
-        <Notice>
-          There is no private offchain heartbeat in this MVP. Less frequent
-          onchain check-ins reduce public activity, but increase the time before
-          recovery can start. Offchain signals cannot extend the contract’s
-          deadline.
+      {error && (
+        <Notice danger popup>
+          {error}
         </Notice>
-      </Panel>
+      )}
     </>
   );
 }
@@ -405,133 +363,8 @@ export function SettingsPage() {
           {environmentIssues.length > 0 && (
             <Notice>{environmentIssues.join(" ")}</Notice>
           )}
-          <p className="muted small">
-            NEXT_PUBLIC values are visible to everyone. Use a browser-safe RPC
-            endpoint with appropriate restrictions.
-          </p>
         </Panel>
       </div>
-      <Panel
-        title="Connect your Remix deployment"
-        description="All protocol source is in the contracts/ directory."
-      >
-        <ol className="setup-steps">
-          <li>
-            <span>01</span>
-            <div>
-              <h3>Compile the factory</h3>
-              <p>
-                In Remix, upload contracts/ preserving its directories. Select
-                Solidity 0.8.24, optimizer enabled (200 runs), EVM Paris.
-                Versioned OpenZeppelin imports resolve automatically.
-              </p>
-            </div>
-          </li>
-          <li>
-            <span>02</span>
-            <div>
-              <h3>Deploy on Sepolia</h3>
-              <p>
-                Choose Injected Provider and verify chain 11155111 in your
-                wallet. Deploy SilentSovereignFactory with no constructor
-                arguments. This requires your approval and test ETH.
-              </p>
-            </div>
-          </li>
-          <li>
-            <span>03</span>
-            <div>
-              <h3>Add the deployed address</h3>
-              <p>
-                Copy .env.example to frontend/.env.local. Set the factory
-                address, chain ID, RPC URL and deployment block. Restart
-                Next.js, or rebuild before hosting.
-              </p>
-            </div>
-          </li>
-          <li>
-            <span>04</span>
-            <div>
-              <h3>Verify a complete recovery</h3>
-              <p>
-                Create a vault with two beneficiary wallets and a separate
-                guardian. Use 60-second test intervals, deposit test ETH, check
-                in, request recovery after expiry, approve it, wait for the
-                challenge and finalize. Then switch to a beneficiary to claim.
-              </p>
-            </div>
-          </li>
-        </ol>
-        <Notice>
-          Read contracts/remix-deployment.md for exact arguments and
-          docs/demo.md for both cancellation and completed recovery scenarios.
-          An audit is required before any real-value use.
-        </Notice>
-      </Panel>
-      <Panel title="Repository documentation">
-        <details className="notification-panel">
-          <summary className="advanced-summary">
-            Operator setup for optional email alerts
-          </summary>
-          <Badge tone="amber">
-            {notificationSetup.data?.notificationSetup.length
-              ? "Setup incomplete"
-              : "Configuration presence only · delivery unverified"}
-          </Badge>
-          <p className="small muted">
-            Read docs/notifications.md and frontend/.env.example. Supabase MCP
-            login is separate from application runtime credentials.
-          </p>
-          <p className="small address-wrap">
-            Missing server variables:{" "}
-            {notificationSetup.data?.notificationSetup.join(", ") ||
-              "None reported; test actual delivery before enabling alerts."}
-          </p>
-          <p className="small muted">
-            Apply supabase/migrations/202610300001_notifications.sql, configure
-            a verified sender and signed webhook, then run CRE CLI against your
-            HTTPS endpoint. A simulation is one execution; continuous monitoring
-            needs a deployed active workflow.
-          </p>
-          {notificationSetup.error && (
-            <Notice danger>
-              Could not read service setup. Check the server before enabling
-              alerts.
-            </Notice>
-          )}
-        </details>
-        <div className="documentation-grid">
-          {[
-            ["README.md", "Setup, commands and verification status"],
-            [
-              "contracts/remix-deployment.md",
-              "Compiler, constructor arguments and deployment order",
-            ],
-            [
-              "docs/architecture.md",
-              "Vault isolation and state-machine design",
-            ],
-            [
-              "docs/security.md",
-              "Accounting, trust assumptions and limitations",
-            ],
-            [
-              "docs/integrations.md",
-              "Official sources and integration boundaries",
-            ],
-            ["docs/demo.md", "End-to-end testnet walkthrough"],
-            [
-              "cre/README.md",
-              "Workflow simulation, registration and execution",
-            ],
-          ].map(([file, desc]) => (
-            <div key={file}>
-              <code>{file}</code>
-              <p>{desc}</p>
-            </div>
-          ))}
-        </div>
-      </Panel>
     </>
   );
 }

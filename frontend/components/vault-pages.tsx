@@ -81,7 +81,10 @@ function VaultSelector() {
           if (validAddress(input)) {
             select(getAddress(input));
             setError("");
-          } else setError("Enter a valid vault address.");
+          } else
+            setError(
+              "Enter a valid Ethereum vault address beginning with 0x, then try again.",
+            );
         }}
       >
         <input
@@ -94,7 +97,11 @@ function VaultSelector() {
           Open <ArrowUpRight size={13} />
         </button>
       </form>
-      {error && <small className="error-text">{error}</small>}
+      {error && (
+        <Notice danger popup title="Check the vault address">
+          {error}
+        </Notice>
+      )}
     </div>
   );
 }
@@ -363,7 +370,7 @@ export function VaultDetailsPage() {
   return (
     <>
       <PageHeader
-        title="Your sovereign vault."
+        title="Your silent vault."
         description="Isolated custody. Transparent accounting. Every asset, verified onchain."
         action={
           <Link className="button" href="/builder">
@@ -762,9 +769,9 @@ function AssetOperations() {
           </>
         )}
         {error && (
-          <p className="error-text" role="alert">
+          <Notice danger popup title="Vault request could not be completed">
             {error}
-          </p>
+          </Notice>
         )}
         {isOwner && d?.state === 0 && (
           <details className="add-token">

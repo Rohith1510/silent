@@ -1,0 +1,16 @@
+{
+  "/(workspace)/activity/page": "app/(workspace)/activity/page.js",
+  "/(workspace)/beneficiaries/page": "app/(workspace)/beneficiaries/page.js",
+  "/(workspace)/builder/page": "app/(workspace)/builder/page.js",
+  "/(workspace)/create/page": "app/(workspace)/create/page.js",
+  "/(workspace)/dashboard/page": "app/(workspace)/dashboard/page.js",
+  "/(workspace)/notifications/page": "app/(workspace)/notifications/page.js",
+  "/(workspace)/notifications/verify/page": "app/(workspace)/notifications/verify/page.js",
+  "/(workspace)/privacy/page": "app/(workspace)/privacy/page.js",
+  "/(workspace)/recovery/page": "app/(workspace)/recovery/page.js",
+  "/(workspace)/settings/page": "app/(workspace)/settings/page.js",
+  "/(workspace)/vault/page": "app/(workspace)/vault/page.js",
+  "/api/auth/session/route": "app/api/auth/session/route.js",
+  "/api/status/route": "app/api/status/route.js",
+  "/page": "app/page.js"
+}

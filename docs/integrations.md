@@ -14,6 +14,10 @@ Subname registration is limited to a real parent subregistry that exists and giv
 
 Registration alone does not ensure resolution. The integrated onboarding panel now checks the parent's expiry, resolver Ethereum setter rights and supports documented `setAddress(DNSName,60,addressBytes)`, `grantSetterRoles` and `revokeRoles` transactions. See the [Permissioned Resolver](https://docs.ens.domains/ensv2/permissioned-resolver/) interface. A coin-type grant affects every name served by that resolver instance; explicit acknowledgement is required. Name ownership does not automatically grant resolver rights. Registration and record setting have separate receipts. Locally remembered labels are advisory; drift checks compare current resolution with the immutable allocation account until an owner updates configuration. Parent expiry/removal or registry reassignment can interrupt resolution without redirecting saved inheritance.
 
+Existing subnames can also load and edit the standard `avatar`, `description`, `url`, `com.twitter` and `com.github` text records. Reads use `getEnsText`, while `getEnsAvatar` resolves ENSIP-12 avatar forms such as NFT references for display; changed values are DNS-encoded and sent through the Permissioned Resolver's `multicall(setText(...))`, so one confirmed transaction updates the selected public profile fields. Descriptions are limited to 160 characters. Avatar metadata and image retrieval are separate network requests and are not protected by Anon-RPC.
+
+The profile permission panel demonstrates ENSv2 argument-scoped Enhanced Access Control. It encodes the selected `setText` setter and calls `grantSetterRoles`, or revokes `ROLE_SET_TEXT` at `keccak256(bytes(key))`. The UI then independently checks the delegate's selected text-key permission and Ethereum coin-type permission so a profile grant is never presented as address authority. Key grants still cover every name served by the resolver instance; use a dedicated resolver for per-beneficiary isolation. Profile metadata is informational and can change without changing the beneficiary address pinned in the vault.
+
 **Boundary:** CCIP-Read HTTP gateways are disabled in the app's selected read client. Names requiring gateway resolution are unsupported here. This prevents invisible off-transport lookup traffic. ENSv2 live registration, resolver roles and live lookup were not established just by reading docs or building the frontend; use the Privacy probe and Identity Explorer with your actual Sepolia names.
 
 ## Ethereum Foundation Anon-RPC
@@ -30,15 +34,15 @@ The client allowlists RPC read/simulation methods and denies signing/broadcast m
 
 ### Threat model
 
-| Observer | What may be visible |
-| --- | --- |
-| App hosting provider / analytics / browser extensions | App visit IP, resource loading, wallet connection if instrumented; no analytics are installed by this MVP |
-| Bootstrap RPC | Browser IP and specifier lookup; worker hash authenticity depends on this response |
-| Worker host / CDN | Worker download timing/IP and requested bundle |
-| Anonymity network entry peer | Browser connection IP, timing and volume |
-| Network exit / upstream RPC | Destination and public query contents depending on network/TLS design; queries can contain account addresses |
-| Wallet / wallet RPC | Connection identity, signing/broadcast metadata, wallet-side requests |
-| Blockchain observers | Public addresses, deposits, configuration, guardian votes, heartbeat transactions, claims, timing and balances |
+| Observer                                              | What may be visible                                                                                            |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| App hosting provider / analytics / browser extensions | App visit IP, resource loading, wallet connection if instrumented; no analytics are installed by this MVP      |
+| Bootstrap RPC                                         | Browser IP and specifier lookup; worker hash authenticity depends on this response                             |
+| Worker host / CDN                                     | Worker download timing/IP and requested bundle                                                                 |
+| Anonymity network entry peer                          | Browser connection IP, timing and volume                                                                       |
+| Network exit / upstream RPC                           | Destination and public query contents depending on network/TLS design; queries can contain account addresses   |
+| Wallet / wallet RPC                                   | Connection identity, signing/broadcast metadata, wallet-side requests                                          |
+| Blockchain observers                                  | Public addresses, deposits, configuration, guardian votes, heartbeat transactions, claims, timing and balances |
 
 Hash verification prevents execution of unpinned bytes, not malicious code that the trusted specifier itself pins. The worker can observe or censor requests; bootstrap and specifier controllers remain trust assumptions. Mixnet availability, latency and adversarial traffic correlation are outside this app's guarantees. It does not claim zero-trace activity, invisible heartbeats, unlinkable public balances or post-quantum security.
 

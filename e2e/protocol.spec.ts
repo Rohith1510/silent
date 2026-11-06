@@ -185,7 +185,7 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   await expect(page.getByRole("dialog")).toContainText("60%");
   await page.getByRole("button", { name: "Confirm & open wallet" }).click();
   await expect(page).toHaveURL(/\/vault$/);
-  await expect(page.locator(".transaction-toast")).toContainText("confirmed");
+  await expect(page.locator(".transaction-toast")).toContainText(/confirmed/i);
   const vault = (
     await client.readContract({
       address: factory,
@@ -223,13 +223,71 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
     fullPage: true,
     caret: "initial",
   });
+  await page.getByRole("link", { name: "Beneficiaries", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Beneficiaries", level: 1 }),
+  ).toBeVisible();
+  const beneficiaryPage = page.locator(".beneficiaries-page");
+  // The redesigned page must preserve editing, review and onchain persistence.
+  // Restore the original split before the existing recovery/claims scenario.
+  for (const [firstShare, secondShare] of [
+    [55, 45],
+    [60, 40],
+  ]) {
+    await page
+      .getByLabel("Share (%), Beneficiary 1 allocation (%)", { exact: true })
+      .fill(String(firstShare));
+    await page
+      .getByLabel("Share (%), Beneficiary 2 allocation (%)", { exact: true })
+      .fill(String(secondShare));
+    await expect(
+      beneficiaryPage.locator(".beneficiaries-distribution-total"),
+    ).toContainText("100%");
+    await beneficiaryPage
+      .getByRole("button", { name: "Safeguards", exact: true })
+      .click();
+    await expect(
+      beneficiaryPage.getByLabel("Liveness interval (seconds)", {
+        exact: true,
+      }),
+    ).toHaveValue("120");
+    await page
+      .getByRole("button", { name: "People & shares", exact: true })
+      .click();
+    await expect(
+      beneficiaryPage.getByLabel("Share (%), Beneficiary 1 allocation (%)", {
+        exact: true,
+      }),
+    ).toHaveValue(String(firstShare));
+    await page
+      .getByRole("button", { name: "Review & save plan", exact: true })
+      .click();
+    await expect(beneficiaryPage.getByRole("dialog")).toContainText(
+      `${firstShare}%`,
+    );
+    await beneficiaryPage
+      .getByRole("button", { name: "Confirm & open wallet" })
+      .click();
+    await expect(beneficiaryPage.getByRole("dialog")).toHaveCount(0);
+    await expect
+      .poll(
+        async () =>
+          (
+            await client.readContract({
+              ...read,
+              functionName: "getBeneficiaries",
+            })
+          )[0].allocationBps,
+      )
+      .toBe(firstShare * 100);
+  }
   await page.getByRole("link", { name: "My vault", exact: true }).click();
   await page.getByLabel("Amount", { exact: true }).fill("0.01");
   await page.getByRole("button", { name: "Deposit to vault" }).click();
   await expect
     .poll(() => client.getBalance({ address: vault }))
     .toBe(10000000000000000n);
-  await expect(page.locator(".transaction-toast")).toContainText("confirmed");
+  await expect(page.locator(".transaction-toast")).toContainText(/confirmed/i);
   await page.evaluate(() =>
     (
       window as unknown as { __rejectNextTestTransaction: () => void }
@@ -237,6 +295,19 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   );
   await page.getByRole("button", { name: "Deposit to vault" }).click();
   await expect(page.locator(".transaction-toast")).toContainText("declined");
+  const failureDialog = page.getByRole("alertdialog", {
+    name: "Transaction could not be completed",
+  });
+  await expect(failureDialog).toBeVisible();
+  await expect(failureDialog).toContainText("declined");
+  await page.keyboard.press("Escape");
+  await expect(failureDialog).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Deposit to vault" }),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "View details", exact: true }).click();
+  await expect(failureDialog).toBeVisible();
+  await failureDialog.getByRole("button", { name: "Understood" }).click();
   expect(await client.getBalance({ address: vault })).toBe(10000000000000000n);
 
   await page
@@ -245,7 +316,7 @@ test("real local-chain vault creation, graph save, deposits, cancellation, recov
   await page
     .getByRole("button", { name: "Submit check-in", exact: true })
     .click();
-  await expect(page.locator(".transaction-toast")).toContainText("confirmed");
+  await expect(page.locator(".transaction-toast")).toContainText(/confirmed/i);
   await warp(
     (await client.readContract({ ...read, functionName: "deadline" })) + 1n,
   );

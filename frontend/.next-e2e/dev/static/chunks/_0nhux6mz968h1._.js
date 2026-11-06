@@ -1,0 +1,5 @@
+(globalThis["TURBOPACK_CHUNK_LISTS"] || (globalThis["TURBOPACK_CHUNK_LISTS"] = [])).push({
+    script: typeof document === "object" ? document.currentScript : undefined,
+    chunks: ["static/chunks/node_modules_0oklh4as0p3cb._.js","static/chunks/node_modules_@tanstack_query-core_build_modern_04fxjjnqszymr._.js","static/chunks/node_modules_viem__esm_12qlas-pc7g96._.js","static/chunks/node_modules_@noble_curves_esm_1hm2mb57movza._.js","static/chunks/node_modules_ox__esm_15777ty4ulkhn._.js","static/chunks/node_modules_1h_1swj9z5xhx._.js","static/chunks/_1wpod8g0xzkxq._.js","static/chunks/app_globals_css_20o3uo5wggppq.css","static/chunks/_0avqvcmnsfee3._.js","static/chunks/node_modules_0v8rw2vkb7dw7._.js","static/chunks/components_1ufhr4kiwakk7._.js","static/chunks/node_modules_1k-4xtvggx-2e._.js","static/chunks/node_modules_@xyflow_react_dist_style_css_0637kl6bx80sl.css","static/chunks/node_modules_viem__esm_1ybiscxghkebd._.js","static/chunks/node_modules_@kpstreams_webrtc-client_dist_index_0jg3577_o_-4_.js","static/chunks/node_modules_0zq1lg1s2gopw._.js","static/chunks/node_modules_@kpstreams_1hsytje9g8_dt._.js"],
+    source: "entry"
+});
