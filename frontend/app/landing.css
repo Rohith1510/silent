@@ -397,10 +397,10 @@
 .ss-infrastructure {
   max-width: 1200px;
   margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.35fr) repeat(4, minmax(130px, 1fr));
   align-items: center;
-  gap: 24px;
+  gap: 28px;
   padding: 36px 0;
   border-bottom: 1px solid #eee;
 }
@@ -417,15 +417,29 @@
 }
 .ss-infrastructure strong {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   font-weight: 500;
   font-size: 15px;
   color: #555;
 }
+.ss-infrastructureIcon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  color: #555;
+}
 .ss-infrastructure img {
+  width: auto;
+  height: auto;
+  max-width: 30px;
+  max-height: 30px;
   object-fit: contain;
-  filter: grayscale(1);
+  filter: none !important;
+  opacity: 1;
+  mix-blend-mode: normal;
 }
 .ss-section {
   max-width: 1200px;
@@ -818,6 +832,7 @@
     height: 180px;
   }
   .ss-infrastructure {
+    display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 20px 35px;
@@ -948,8 +963,13 @@
     font-size: 12px;
   }
   .ss-infrastructure img {
-    width: 20px;
-    height: 20px;
+    max-width: 24px;
+    max-height: 24px;
+  }
+  .ss-infrastructureIcon {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
   }
   .ss-section {
     margin-top: 70px;

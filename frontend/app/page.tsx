@@ -19,6 +19,9 @@ import {
 } from "lucide-react";
 import { Brand, Badge, WalletButton } from "@/components/ui";
 import { HeroPerspectiveGrid } from "@/components/hero-perspective-grid";
+import ethereumLogo from "../public/ethereum.png";
+import ensLogo from "../public/ens.png";
+import chainlinkLogo from "../public/chainlink.png";
 import "./landing.css";
 
 const styles = {
@@ -48,6 +51,7 @@ const styles = {
   home: "ss-home",
   illustrationLabel: "ss-illustrationLabel",
   infrastructure: "ss-infrastructure",
+  infrastructureIcon: "ss-infrastructureIcon",
   kicker: "ss-kicker",
   miniStack: "ss-miniStack",
   openApp: "ss-openApp",
@@ -244,19 +248,27 @@ export default function Home() {
             <small>Integration availability varies by setup.</small>
           </div>
           <strong>
-            <Image src="/ethereum.png" alt="" width={25} height={25} />
+            <span className={styles.infrastructureIcon}>
+              <Image src={ethereumLogo} alt="" width={30} height={30} />
+            </span>
             Ethereum
           </strong>
           <strong>
-            <Image src="/ens.png" alt="" width={25} height={25} />
+            <span className={styles.infrastructureIcon}>
+              <Image src={ensLogo} alt="" width={30} height={30} />
+            </span>
             ENS
           </strong>
           <strong>
-            <Image src="/chainlink.png" alt="" width={25} height={25} />
+            <span className={styles.infrastructureIcon}>
+              <Image src={chainlinkLogo} alt="" width={26} height={30} />
+            </span>
             Chainlink CRE
           </strong>
           <strong>
-            <Fingerprint size={23} />
+            <span className={styles.infrastructureIcon}>
+              <Fingerprint size={25} />
+            </span>
             Anon-RPC
           </strong>
         </div>

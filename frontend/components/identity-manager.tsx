@@ -780,20 +780,22 @@ export function IdentityManager({
             </div>
           )}
           {identity?.name && onResolved && (
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={() => {
-                rememberIdentity(
-                  identity.name!,
-                  identity.address,
-                  client!.chain.id,
-                );
-                onResolved(identity.name!, identity.address);
-              }}
-            >
-              Use this verified beneficiary
-            </button>
+            <div className="identity-result-action">
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() => {
+                  rememberIdentity(
+                    identity.name!,
+                    identity.address,
+                    client!.chain.id,
+                  );
+                  onResolved(identity.name!, identity.address);
+                }}
+              >
+                Use this verified beneficiary
+              </button>
+            </div>
           )}
           <Notice>
             Only onchain ENS resolution is enabled. CCIP-Read HTTP gateways are
@@ -833,7 +835,7 @@ export function IdentityManager({
                 />
               </Field>
               <button
-                className="button align-end"
+                className="button identity-grid-action"
                 disabled={!client || !address || busy || !parent}
                 onClick={checkParent}
               >
@@ -1119,7 +1121,7 @@ export function IdentityManager({
                 />
               </Field>
               <button
-                className="button align-end"
+                className="button identity-grid-action"
                 disabled={!client || !profileName || busy}
                 onClick={() => loadProfile()}
               >

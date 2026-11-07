@@ -18,6 +18,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -198,6 +199,9 @@ export function MessageDialog({
   children,
   tone = "warning",
   onAfterClose,
+  primaryLabel,
+  secondaryLabel,
+  onPrimary,
 }: {
   open: boolean;
   onClose: () => void;
@@ -205,6 +209,9 @@ export function MessageDialog({
   children: ReactNode;
   tone?: "error" | "success" | "warning";
   onAfterClose?: () => void;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  onPrimary?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
@@ -268,8 +275,19 @@ export function MessageDialog({
         {children}
       </div>
       <div className="alert-dialog-footer">
-        <button className="button primary" onClick={onClose}>
-          {tone === "success" ? "Done" : "Understood"}
+        {secondaryLabel && (
+          <button className="button" onClick={onClose}>
+            {secondaryLabel}
+          </button>
+        )}
+        <button
+          className="button primary"
+          onClick={() => {
+            onPrimary?.();
+            onClose();
+          }}
+        >
+          {primaryLabel || (tone === "success" ? "Done" : "Understood")}
         </button>
       </div>
     </dialog>
@@ -337,6 +355,13 @@ export function External({
 }
 export function WalletButton() {
   const { address, chainId, isConnected } = useConnection();
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const renderedConnected = hydrated && isConnected;
+  const renderedAddress = hydrated ? address : undefined;
   const connectors = useConnectors();
   const connect = useConnect();
   const disconnect = useDisconnect();
@@ -346,16 +371,16 @@ export function WalletButton() {
   return (
     <div className="wallet-control">
       <button
-        className={isConnected ? "button wallet-button" : "button primary"}
+        className={renderedConnected ? "button wallet-button" : "button primary"}
         onClick={() => setOpen(!open)}
       >
         <Wallet size={15} />
-        {isConnected ? shortAddress(address) : "Connect wallet"}
+        {renderedConnected ? shortAddress(renderedAddress) : "Connect wallet"}
       </button>
       {open && (
         <div className="wallet-popover">
           <div className="between">
-            <strong>{isConnected ? "Your wallet" : "Connect securely"}</strong>
+            <strong>{renderedConnected ? "Your wallet" : "Connect securely"}</strong>
             <button
               className="icon-button"
               aria-label="Close wallet menu"
@@ -365,9 +390,9 @@ export function WalletButton() {
             </button>
           </div>
           <p>Your wallet keeps control of every signature.</p>
-          {isConnected ? (
+          {renderedConnected ? (
             <>
-              <div className="address-wrap mono">{address}</div>
+              <div className="address-wrap mono">{renderedAddress}</div>
               {chainId !== chain.id && (
                 <button
                   className="button primary full"
