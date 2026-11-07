@@ -26,16 +26,19 @@ import {
   emptyEnsProfile,
   ensProfileKeys,
   inspectEnsProfile,
+  identityProfileMulticall,
   profileMulticall,
   rememberIdentity,
+  rememberIdentityHealth,
   roleSetText,
   textRecordResource,
   textSetterPermissionCall,
   type EnsProfileKey,
   type EnsProfileRecords,
 } from "@/lib/ens";
-import { validAddress } from "@/lib/configuration";
+import { shortAddress, validAddress } from "@/lib/configuration";
 import { transactionError } from "@/lib/transaction";
+import { loadActiveEnsFamily } from "@/lib/ens-setup";
 import { useReadTransport } from "./providers";
 import { useProtocol } from "./protocol-provider";
 import { Badge, External, Field, Notice, Panel } from "./ui";
@@ -91,6 +94,12 @@ export function IdentityManager({
   const [delegate, setDelegate] = useState("");
   const [scopeAck, setScopeAck] = useState(false);
   const [parentExpiry, setParentExpiry] = useState<bigint>();
+  const [setupName, setSetupName] = useState("");
+  const [setupStage, setSetupStage] = useState<
+    "details" | "registered" | "verified"
+  >("details");
+  const [setupProfile, setSetupProfile] =
+    useState<EnsProfileRecords>(emptyEnsProfile);
   const [profileName, setProfileName] = useState("");
   const [profile, setProfile] = useState<EnsProfileRecords>(emptyEnsProfile);
   const [savedProfile, setSavedProfile] =
@@ -110,6 +119,32 @@ export function IdentityManager({
     useState<EnsProfileKey>("avatar");
   const [profileScopeAck, setProfileScopeAck] = useState(false);
   const [profilePermissionStatus, setProfilePermissionStatus] = useState("");
+  function resumeSetup() {
+    if (!client) return;
+    setError("");
+    try {
+      const saved = localStorage.getItem(`silent:ens-setup:${client.chain.id}`);
+      if (!saved)
+        throw new Error("No unfinished ENS identity setup was found in this browser.");
+      const value = JSON.parse(saved) as {
+        name: string;
+        account: string;
+        resolver: string;
+        profile: EnsProfileRecords;
+      };
+      if (!validAddress(value.account) || !validAddress(value.resolver))
+        throw new Error("The saved ENS setup draft is invalid.");
+      setSetupName(value.name);
+      setRecordName(value.name);
+      setRecordAddress(value.account);
+      setHeir(value.account);
+      setResolver(value.resolver);
+      setSetupProfile({ ...emptyEnsProfile(), ...value.profile });
+      setSetupStage("registered");
+    } catch (e) {
+      setError(transactionError(e));
+    }
+  }
   async function lookup() {
     if (!client) return;
     setChecking(true);
@@ -158,6 +193,21 @@ export function IdentityManager({
     } finally {
       setChecking(false);
     }
+  }
+  function loadConfiguredFamily() {
+    if (!address) return;
+    setError("");
+    const family = loadActiveEnsFamily(address);
+    if (!family) {
+      setError(
+        "No verified family identity space is saved for this wallet. Complete the guided ENS setup above first.",
+      );
+      return;
+    }
+    setParent(family.name);
+    setResolver(family.resolver);
+    setCanRegister(false);
+    setChecked("");
   }
   async function register() {
     if (!client || !registry || !address) return;
@@ -222,9 +272,138 @@ export function IdentityManager({
         setRecordPermission(false);
         setProfileName(createdName);
         setProfileLoaded(false);
+        setSetupName(createdName);
+        setSetupStage("registered");
+        try {
+          localStorage.setItem(
+            `silent:ens-setup:${client.chain.id}`,
+            JSON.stringify({
+              name: createdName,
+              account: getAddress(heir),
+              resolver: getAddress(resolver),
+              profile: setupProfile,
+            }),
+          );
+        } catch {
+          /* Resume storage is optional. */
+        }
       }
     } catch (e) {
       setError(transactionError(e));
+    }
+  }
+  async function configureCreatedIdentity() {
+    if (
+      !client ||
+      !address ||
+      !setupName ||
+      !validAddress(heir) ||
+      !validAddress(resolver)
+    )
+      return;
+    setChecking(true);
+    setError("");
+    try {
+      const normalizedName = normalize(setupName);
+      const liveResolver = await client.getEnsResolver({ name: normalizedName });
+      if (!liveResolver || liveResolver.toLowerCase() !== resolver.toLowerCase())
+        throw new Error(
+          "The name's resolver differs from the reviewed resolver. Recheck the name in ENS Explorer.",
+        );
+      const includedKeys = ensProfileKeys.filter(
+        (key) => setupProfile[key].trim() !== "",
+      );
+      const [addressRoot, addressScoped, textRoot, ...textScoped] =
+        await Promise.all([
+          client.readContract({
+            address: liveResolver,
+            abi: resolverAbi,
+            functionName: "hasRootRoles",
+            args: [1n, address],
+          }),
+          client.readContract({
+            address: liveResolver,
+            abi: resolverAbi,
+            functionName: "hasRoles",
+            args: [ethAddressResource, 1n, address],
+          }),
+          client.readContract({
+            address: liveResolver,
+            abi: resolverAbi,
+            functionName: "hasRootRoles",
+            args: [roleSetText, address],
+          }),
+          ...includedKeys.map((key) =>
+            client.readContract({
+              address: liveResolver,
+              abi: resolverAbi,
+              functionName: "hasRoles",
+              args: [textRecordResource(key), roleSetText, address],
+            }),
+          ),
+        ]);
+      if (!addressRoot && !addressScoped)
+        throw new Error(
+          "This wallet cannot edit Ethereum records on the selected resolver. Use an authorized resolver administrator, then retry this step.",
+        );
+      if (
+        includedKeys.some((_, index) => !textRoot && !textScoped[index])
+      )
+        throw new Error(
+          "This wallet cannot edit every selected public profile field. Clear unauthorized optional fields or ask the resolver administrator for text permissions.",
+        );
+      const records = Object.fromEntries(
+        includedKeys.map((key) => [key, setupProfile[key]]),
+      ) as Partial<EnsProfileRecords>;
+      const ok = await execute(`Configure ${normalizedName} identity`, {
+        to: liveResolver,
+        data: identityProfileMulticall(
+          normalizedName,
+          getAddress(heir),
+          records,
+        ),
+      });
+      if (!ok) return;
+      const verified = await inspectEnsProfile(client, normalizedName);
+      if (verified.identity.address.toLowerCase() !== heir.toLowerCase())
+        throw new Error(
+          "The receipt confirmed, but the name does not resolve to the beneficiary wallet.",
+        );
+      const mismatch = includedKeys.find(
+        (key) => verified.records[key] !== setupProfile[key],
+      );
+      if (mismatch)
+        throw new Error(
+          `The receipt confirmed, but the ${profileLabels[mismatch]} record did not verify.`,
+        );
+      const entry = await registryEntry(client, normalizedName);
+      rememberIdentity(normalizedName, getAddress(heir), client.chain.id);
+      rememberIdentityHealth(
+        {
+          name: normalizedName,
+          address: getAddress(heir),
+          resolver: liveResolver,
+          owner: verified.identity.owner,
+          expiry: entry.expiry.toString(),
+        },
+        client.chain.id,
+      );
+      setIdentity(verified.identity);
+      setInput(normalizedName);
+      setProfileName(normalizedName);
+      setProfile(verified.records);
+      setSavedProfile(verified.records);
+      setSetupStage("verified");
+      try {
+        localStorage.removeItem(`silent:ens-setup:${client.chain.id}`);
+      } catch {
+        /* Resume storage is optional. */
+      }
+      onResolved?.(normalizedName, getAddress(heir));
+    } catch (e) {
+      setError(transactionError(e));
+    } finally {
+      setChecking(false);
     }
   }
   async function checkRecords() {
@@ -601,20 +780,22 @@ export function IdentityManager({
             </div>
           )}
           {identity?.name && onResolved && (
-            <button
-              className="button primary"
-              disabled={busy}
-              onClick={() => {
-                rememberIdentity(
-                  identity.name!,
-                  identity.address,
-                  client!.chain.id,
-                );
-                onResolved(identity.name!, identity.address);
-              }}
-            >
-              Use this verified beneficiary
-            </button>
+            <div className="identity-result-action">
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() => {
+                  rememberIdentity(
+                    identity.name!,
+                    identity.address,
+                    client!.chain.id,
+                  );
+                  onResolved(identity.name!, identity.address);
+                }}
+              >
+                Use this verified beneficiary
+              </button>
+            </div>
           )}
           <Notice>
             Only onchain ENS resolution is enabled. CCIP-Read HTTP gateways are
@@ -632,7 +813,7 @@ export function IdentityManager({
       >
         <Panel
           title="Permissioned ENSv2 subnames"
-          description="Register under an existing parent subregistry you are authorized to manage."
+          description="Create a beneficiary identity, connect its wallet, and add an optional public profile."
         >
           <details open={!!onResolved || undefined}>
             <summary className="advanced-summary">
@@ -642,7 +823,7 @@ export function IdentityManager({
             <div className="form-grid">
               <Field
                 label="Parent ENS name"
-                hint="The parent owner must first deploy and attach a subregistry in Sepolia ENS Explorer."
+                hint="Use the guided family identity setup above if this name does not have a subname registry yet."
               >
                 <input
                   placeholder="your-family.eth"
@@ -654,13 +835,20 @@ export function IdentityManager({
                 />
               </Field>
               <button
-                className="button align-end"
+                className="button identity-grid-action"
                 disabled={!client || !address || busy || !parent}
                 onClick={checkParent}
               >
                 Check parent & permissions
               </button>
             </div>
+            <button
+              className="inline-link"
+              disabled={!address || busy}
+              onClick={loadConfiguredFamily}
+            >
+              Use my configured family name
+            </button>
             {registry && (
               <p className="small">
                 Parent subregistry: <External hash={registry} kind="address" />{" "}
@@ -676,14 +864,6 @@ export function IdentityManager({
                 Subnames depend on the parent remaining active.
               </p>
             )}
-            <a
-              className="inline-link"
-              href="https://sepolia.explorer.ens.domains/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open ENS Explorer for parent setup
-            </a>
             <div className="form-grid">
               <Field label="Subname label">
                 <input
@@ -700,13 +880,13 @@ export function IdentityManager({
                 />
               </Field>
               <Field
-                label="Existing resolver contract"
-                hint="Registration does not create address records or grant resolver permissions."
+                label="Resolver (automatically discovered)"
+                hint="Read from the parent name when permissions are checked."
               >
                 <input
-                  placeholder="0x…"
+                  readOnly
+                  placeholder="Check the parent first"
                   value={resolver}
-                  onChange={(e) => setResolver(e.target.value)}
                 />
               </Field>
               <Field label="Name expiry">
@@ -717,27 +897,77 @@ export function IdentityManager({
                 />
               </Field>
             </div>
+            <div className="identity-setup-progress" aria-label="Identity setup progress">
+              <span className={canRegister ? "done" : ""}>1. Parent verified</span>
+              <span className={setupStage !== "details" ? "done" : ""}>2. Name registered</span>
+              <span className={setupStage === "verified" ? "done" : ""}>3. Identity verified</span>
+            </div>
+            <div className="identity-profile-fields">
+              <Field label="Avatar" hint="Optional HTTPS, IPFS, or ENSIP-12 value.">
+                <input placeholder="ipfs://... or https://..." value={setupProfile.avatar} onChange={(e) => setSetupProfile({ ...setupProfile, avatar: e.target.value })} />
+              </Field>
+              <Field label="Description" hint="Optional, up to 160 characters.">
+                <input maxLength={160} placeholder="Family beneficiary identity" value={setupProfile.description} onChange={(e) => setSetupProfile({ ...setupProfile, description: e.target.value })} />
+              </Field>
+              <Field label="Website">
+                <input placeholder="https://..." value={setupProfile.url} onChange={(e) => setSetupProfile({ ...setupProfile, url: e.target.value })} />
+              </Field>
+              <Field label="X / Twitter handle">
+                <input placeholder="handle" value={setupProfile["com.twitter"]} onChange={(e) => setSetupProfile({ ...setupProfile, "com.twitter": e.target.value })} />
+              </Field>
+              <Field label="GitHub handle">
+                <input placeholder="username" value={setupProfile["com.github"]} onChange={(e) => setSetupProfile({ ...setupProfile, "com.github": e.target.value })} />
+              </Field>
+            </div>
+            <details className="identity-advanced-resolver">
+              <summary className="advanced-summary">Advanced resolver details</summary>
+              <p className="small muted">
+                The resolver is discovered from the parent. Only change it when an ENS administrator supplied another compatible resolver.
+              </p>
+            </details>
             <Notice>
               The connected wallet must hold the parent subregistry’s
-              registration role. This flow grants the new owner name-level
-              resolver and subregistry roles only. A resolver administrator must
-              configure the beneficiary’s address record separately. Resolve and
-              review the name before adding it to your vault.
+              registration role. This guided flow uses two confirmed
+              transactions: registration, then one resolver multicall for the
+              beneficiary wallet and optional public profile. A local draft
+              lets you resume step two without repeating registration.
             </Notice>
-            <button
-              className="button primary"
-              disabled={
-                !canRegister ||
-                !label ||
-                !validAddress(heir) ||
-                !validAddress(resolver) ||
-                !expiry ||
-                busy
-              }
-              onClick={register}
-            >
-              Review registration in wallet
-            </button>
+            <div className="transport-actions">
+              {setupStage === "details" ? (
+                <button
+                  className="button primary"
+                  disabled={
+                    !canRegister || !label || !validAddress(heir) ||
+                    !validAddress(resolver) || !expiry || busy
+                  }
+                  onClick={register}
+                >
+                  Step 1: register name
+                </button>
+              ) : (
+                <button
+                  className="button primary"
+                  disabled={busy || setupStage === "verified"}
+                  onClick={configureCreatedIdentity}
+                >
+                  {setupStage === "verified" ? "Identity verified" : "Step 2: set wallet & profile"}
+                </button>
+              )}
+              {setupStage === "details" && (
+                <button className="button" disabled={!client || busy} onClick={resumeSetup}>
+                  Resume unfinished setup
+                </button>
+              )}
+              {setupName && <span className="small">{setupName} → {shortAddress(heir)}</span>}
+            </div>
+            {setupStage === "verified" && identity && (
+              <div className="identity-verification-result">
+                <Badge tone="green">Forward resolution verified</Badge>
+                <span>Registry owner: {shortAddress(identity.owner)}</span>
+                <span>Resolver: {shortAddress(identity.resolver)}</span>
+                <span>Profile records verified onchain</span>
+              </div>
+            )}
           </details>
         </Panel>
       </section>
@@ -891,7 +1121,7 @@ export function IdentityManager({
                 />
               </Field>
               <button
-                className="button align-end"
+                className="button identity-grid-action"
                 disabled={!client || !profileName || busy}
                 onClick={() => loadProfile()}
               >

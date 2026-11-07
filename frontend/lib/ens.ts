@@ -98,6 +98,23 @@ export function profileMulticall(
     args: [calls],
   });
 }
+export function identityProfileMulticall(
+  name: string,
+  account: Address,
+  records: Partial<EnsProfileRecords>,
+) {
+  const calls = [
+    addressRecordCall(name, account),
+    ...ensProfileKeys
+      .filter((key) => records[key] !== undefined && records[key] !== "")
+      .map((key) => textRecordCall(name, key, records[key]!)),
+  ];
+  return encodeFunctionData({
+    abi: resolverAbi,
+    functionName: "multicall",
+    args: [calls],
+  });
+}
 export function avatarPreviewUrl(value: string) {
   const avatar = value.trim();
   if (/^https:\/\//i.test(avatar)) return avatar;
@@ -154,6 +171,36 @@ export function rememberedIdentity(account: Address, chainId: number) {
     return account;
   }
 }
+export type EnsIdentityHealth = {
+  name: string;
+  address: Address;
+  resolver?: Address;
+  owner?: Address;
+  expiry?: string;
+};
+export function rememberIdentityHealth(
+  health: EnsIdentityHealth,
+  chainId: number,
+) {
+  try {
+    localStorage.setItem(
+      `silent:identity-health:${chainId}:${normalize(health.name)}`,
+      JSON.stringify(health),
+    );
+  } catch {
+    /* Storage is optional and never authorizes a vault action. */
+  }
+}
+export function rememberedIdentityHealth(name: string, chainId: number) {
+  try {
+    const value = localStorage.getItem(
+      `silent:identity-health:${chainId}:${normalize(name)}`,
+    );
+    return value ? (JSON.parse(value) as EnsIdentityHealth) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 const universalAbi = parseAbi([
   "function ROOT_REGISTRY() view returns (address)",
   "function isENSv2() view returns (bool)",
@@ -186,7 +233,7 @@ export async function findSubregistry(client: ReadClient, parent: string) {
     });
     if (registry === zeroAddress)
       throw new Error(
-        `${parent} has no active ENSv2 subregistry. Its owner must create and attach one using Sepolia ENS Explorer first.`,
+        `${parent} has no active ENSv2 subregistry. Complete the in-app family identity setup first.`,
       );
   }
   return registry;

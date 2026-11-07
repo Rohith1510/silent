@@ -36,6 +36,9 @@ export type ProtocolNode = Node<
     detail: string;
     invalid?: boolean;
     beneficiaryId?: string;
+    profileAvatar?: string;
+    profileDescription?: string;
+    profileAddress?: string;
   },
   "protocol"
 >;

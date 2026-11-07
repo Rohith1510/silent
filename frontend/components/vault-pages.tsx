@@ -30,6 +30,7 @@ import { chain, environmentIssues } from "@/lib/network";
 import { secondsLabel, shortAddress, validAddress } from "@/lib/configuration";
 import { transactionError } from "@/lib/transaction";
 import { parseAssetAmount } from "@/lib/assets";
+import { inspectIdentity } from "@/lib/ens";
 import { states, useActivity, useProtocol } from "./protocol-provider";
 import { useReadTransport } from "./providers";
 import {
@@ -510,6 +511,13 @@ function AssetOperations() {
   const [tokenAddress, setToken] = useState("");
   const [ack, setAck] = useState(false);
   const [error, setError] = useState("");
+  const [previewIdentity, setPreviewIdentity] = useState("");
+  const [previewAccount, setPreviewAccount] = useState<Address>();
+  const [previewClaim, setPreviewClaim] = useState<{
+    scheduled: bigint;
+    emergency: bigint;
+  }>();
+  const [previewing, setPreviewing] = useState(false);
   const d = query.data;
   const asset = d?.assets?.find((a) => a.address === assetAddress);
   let parsed = 0n;
@@ -551,6 +559,35 @@ function AssetOperations() {
   const approveNeeded =
     assetAddress !== zeroAddress &&
     (allowance.data === undefined || allowance.data < parsed);
+  const readClaimPreview = async () => {
+    if (!client || !d?.vault || !asset) return;
+    setPreviewing(true);
+    setError("");
+    setPreviewClaim(undefined);
+    try {
+      const identity = await inspectIdentity(client, previewIdentity.trim());
+      const [scheduled, emergency] = await Promise.all([
+        client.readContract({
+          address: d.vault,
+          abi,
+          functionName: "claimable",
+          args: [identity.address, asset.address, false],
+        }),
+        client.readContract({
+          address: d.vault,
+          abi,
+          functionName: "claimable",
+          args: [identity.address, asset.address, true],
+        }),
+      ]);
+      setPreviewAccount(identity.address);
+      setPreviewClaim({ scheduled, emergency });
+    } catch (e) {
+      setError(transactionError(e));
+    } finally {
+      setPreviewing(false);
+    }
+  };
   const transact = async (
     operation:
       | "deposit"
@@ -734,6 +771,45 @@ function AssetOperations() {
           </>
         ) : (
           <>
+            <div className="claim-preview">
+              <Field
+                label="Preview beneficiary claim"
+                hint="No wallet connection is required. The selected read transport performs real onchain reads."
+              >
+                <input
+                  value={previewIdentity}
+                  placeholder="beneficiary.eth or 0x…"
+                  onChange={(event) => {
+                    setPreviewIdentity(event.target.value);
+                    setPreviewClaim(undefined);
+                    setPreviewAccount(undefined);
+                  }}
+                />
+              </Field>
+              <button
+                className="button full"
+                disabled={!client || !previewIdentity || previewing}
+                onClick={readClaimPreview}
+              >
+                {previewing ? "Reading onchain…" : "Preview without connecting"}
+              </button>
+              {previewClaim && asset && (
+                <div className="claim-preview-result">
+                  <span>
+                    Verified beneficiary: {shortAddress(previewAccount)}
+                  </span>
+                  <strong>
+                    {units(previewClaim.scheduled, asset.decimals)} {asset.symbol} scheduled
+                  </strong>
+                  <strong>
+                    {units(previewClaim.emergency, asset.decimals)} {asset.symbol} emergency
+                  </strong>
+                  <small>
+                    Read-only preview. Connect this beneficiary wallet to claim.
+                  </small>
+                </div>
+              )}
+            </div>
             <div className="claim-readout">
               <span>Scheduled allowance available</span>
               <strong>

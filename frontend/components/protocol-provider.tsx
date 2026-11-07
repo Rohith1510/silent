@@ -308,8 +308,6 @@ export function ProtocolProvider({ children }: { children: ReactNode }) {
         throw new Error(
           "The read RPC serves the wrong network. Correct its URL before signing.",
         );
-      if (environmentIssues.length)
-        throw new Error(environmentIssues.join(" "));
       if (!validAddress(request.to))
         throw new Error("Invalid transaction destination.");
       const destinationCode = await client.getBytecode({ address: request.to });
