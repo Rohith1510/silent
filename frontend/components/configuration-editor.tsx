@@ -1,6 +1,7 @@
 "use client";
-import { useId, useState } from "react";
+import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useConnection } from "wagmi";
 import {
   addEdge,
@@ -10,7 +11,6 @@ import {
   BackgroundVariant,
   Controls,
   Handle,
-  MiniMap,
   Position,
   ReactFlow,
   type Connection,
@@ -54,6 +54,7 @@ import { SilentSovereignVaultAbi } from "@/lib/generated/SilentSovereignVault";
 import { chain, environmentIssues, factoryAddress } from "@/lib/network";
 import {
   inspectIdentity,
+  inspectEnsProfile,
   registryEntry,
   rememberIdentity,
   rememberIdentityHealth,
@@ -76,6 +77,21 @@ const icons = {
   emergency: Zap,
   beneficiary: Users,
 };
+type BeneficiaryProfilePreview = {
+  avatar?: string;
+  description?: string;
+};
+
+function profileInitials(label: string) {
+  const value = label.split(".")[0].replace(/[-_]+/g, " ").trim();
+  const initials = value
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+  return initials || "B";
+}
+
 function ProtocolNodeView({ data, selected }: NodeProps<ProtocolNode>) {
   const Icon = icons[data.kind];
   const target =
@@ -104,8 +120,42 @@ function ProtocolNodeView({ data, selected }: NodeProps<ProtocolNode>) {
         <span className="node-kind">{data.kind}</span>
         <span className={`status-dot ${data.invalid ? "red-dot" : ""}`} />
       </div>
-      <strong>{data.label}</strong>
-      <small>{data.detail}</small>
+      {data.kind === "beneficiary" ? (
+        <div className="node-person-profile">
+          <span className="node-person-avatar">
+            {data.profileAvatar ? (
+              // ENS avatars are public, user-controlled remote resources.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={data.profileAvatar}
+                alt=""
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              profileInitials(data.label)
+            )}
+          </span>
+          <span className="node-person-copy">
+            <strong>{data.label}</strong>
+            {data.profileDescription && (
+              <small className="node-person-description">
+                {data.profileDescription}
+              </small>
+            )}
+            <small>{data.detail}</small>
+            {data.profileAddress && (
+              <span className="node-person-address">
+                {shortAddress(data.profileAddress)}
+              </span>
+            )}
+          </span>
+        </div>
+      ) : (
+        <>
+          <strong>{data.label}</strong>
+          <small>{data.detail}</small>
+        </>
+      )}
       {data.invalid && (
         <span className="node-error">Configuration needs attention</span>
       )}
@@ -154,14 +204,21 @@ function ConfigurationEditor({
 }) {
   const edgeGradient = `flow-edge-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const { address, chainId } = useConnection();
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const renderedAddress = hydrated ? address : undefined;
   const { client } = useReadTransport();
   const { query, execute, transaction } = useProtocol();
-  const vault = mode === "create" ? undefined : query.data?.vault;
-  const owner = vault ? query.data?.owner : address;
+  const vault =
+    hydrated && mode !== "create" ? query.data?.vault : undefined;
+  const owner = vault ? query.data?.owner : renderedAddress;
   const [config, setConfig] = useState<Configuration>(() =>
     structuredClone(initial),
   );
-  const [graph, setGraph] = useState<Graph>(() => buildGraph(initial, owner));
+  const [graph, setGraph] = useState<Graph>(() => buildGraph(initial));
   const [selected, setSelected] = useState<NodeKind>("vault");
   const [selectedId, setSelectedId] = useState<string>();
   const [step, setStep] = useState(0);
@@ -170,11 +227,62 @@ function ConfigurationEditor({
   const [error, setError] = useState("");
   const [resolving, setResolving] = useState<string>();
   const [guardianResolving, setGuardianResolving] = useState<number>();
+  const [beneficiaryProfiles, setBeneficiaryProfiles] = useState<
+    Record<string, BeneficiaryProfilePreview>
+  >({});
   const router = useRouter();
   const issues = validateGraph(config, graph, owner);
   const busy = saving || ["signing", "confirming"].includes(transaction.phase);
-  const isOwner = !vault || owner?.toLowerCase() === address?.toLowerCase();
+  const isOwner =
+    !vault || owner?.toLowerCase() === renderedAddress?.toLowerCase();
   const frozen = !!vault && query.data?.state !== 0;
+  useEffect(() => {
+    let cancelled = false;
+    if (mode !== "builder" || !client) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setBeneficiaryProfiles({});
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const named = config.beneficiaries.filter(
+      (beneficiary) =>
+        beneficiary.identity && !isAddress(beneficiary.identity),
+    );
+    if (!named.length) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setBeneficiaryProfiles({});
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    void Promise.all(
+      named.map(async (beneficiary) => {
+        try {
+          const result = await inspectEnsProfile(
+            client,
+            beneficiary.resolvedIdentity || beneficiary.identity,
+          );
+          return [
+            beneficiary.id,
+            {
+              avatar: result.avatarUrl,
+              description: result.records.description || undefined,
+            },
+          ] as const;
+        } catch {
+          return [beneficiary.id, {}] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled) setBeneficiaryProfiles(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, config.beneficiaries, mode]);
   function update(next: Configuration) {
     setConfig(next);
     const canonical = buildGraph(next, owner);
@@ -468,7 +576,28 @@ function ConfigurationEditor({
         ENS resolves to a pinned wallet address. Future name changes never
         redirect an inheritance.
       </p>
-      {mode !== "beneficiaries" && onboarding}
+      {mode !== "beneficiaries" && (
+        <div className="ens-workspace-shortcut ens-workspace-shortcut-inspector">
+          <span className="ens-workspace-shortcut-icon">
+            <Fingerprint size={19} />
+          </span>
+          <span className="ens-workspace-shortcut-copy">
+            <strong>Want to use an ENS identity?</strong>
+            <small>
+              Create or verify it in the dedicated identity workspace, then
+              return here and enter the name.
+            </small>
+          </span>
+          <Link
+            className="button"
+            href="/beneficiaries"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open ENS workspace <ArrowRight size={14} />
+          </Link>
+        </div>
+      )}
       {config.beneficiaries.length === 0 && (
         <div className="inline-empty">
           Start with the people you want to protect.
@@ -783,7 +912,7 @@ function ConfigurationEditor({
     ) : selected === "owner" ? (
       <Notice>
         The wallet that creates the vault becomes its immutable owner.
-        Connected: {shortAddress(address)}.
+        Connected: {shortAddress(renderedAddress)}.
       </Notice>
     ) : selected === "allowance" || selected === "emergency" ? (
       schedule
@@ -817,7 +946,7 @@ function ConfigurationEditor({
             busy ||
             frozen ||
             !isOwner ||
-            !address ||
+            !renderedAddress ||
             environmentIssues.length > 0
           }
           onClick={() => setPreview(true)}
@@ -930,13 +1059,30 @@ function ConfigurationEditor({
             </div>
             <ReactFlow<ProtocolNode>
               className="inheritance-flow"
-              nodes={graph.nodes.map((n) => ({
-                ...n,
-                data: {
-                  ...n.data,
-                  invalid: issues.some((e) => e.node === n.id),
-                },
-              }))}
+              nodes={graph.nodes.map((n) => {
+                const beneficiary = n.data.beneficiaryId
+                  ? config.beneficiaries.find(
+                      (person) => person.id === n.data.beneficiaryId,
+                    )
+                  : undefined;
+                const profile = n.data.beneficiaryId
+                  ? beneficiaryProfiles[n.data.beneficiaryId]
+                  : undefined;
+                return {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    detail:
+                      n.data.kind === "owner"
+                        ? shortAddress(owner)
+                        : n.data.detail,
+                    invalid: issues.some((e) => e.node === n.id),
+                    profileAvatar: profile?.avatar,
+                    profileDescription: profile?.description,
+                    profileAddress: beneficiary?.address,
+                  },
+                };
+              })}
               edges={graph.edges}
               nodeTypes={nodeTypes}
               onNodesChange={(changes) =>
@@ -1001,14 +1147,6 @@ function ConfigurationEditor({
                 size={1.35}
               />
               <Controls showInteractive={false} />
-              <MiniMap
-                nodeColor={(n) =>
-                  n.data.kind === "beneficiary" ? "#242424" : "#b5b5b5"
-                }
-                maskColor="#f5f5f599"
-                pannable
-                zoomable
-              />
             </ReactFlow>
             <div className="canvas-caption">
               <LockLabel />

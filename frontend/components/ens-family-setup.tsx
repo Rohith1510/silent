@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useConnection } from "wagmi";
 import {
   Check,
@@ -129,6 +135,14 @@ async function verifiedProxy(
 
 export function EnsFamilySetup() {
   const { address, chainId } = useConnection();
+  // Wallet connectors restore persisted state only in the browser. Keep the
+  // first client render identical to SSR, then reveal the restored connection.
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const renderedAddress = hydrated ? address : undefined;
   const { client, privacy } = useReadTransport();
   const { execute, transaction } = useProtocol();
   const [nameInput, setNameInput] = useState("");
@@ -162,14 +176,14 @@ export function EnsFamilySetup() {
   const commitmentExpired = !!commitTiming && now > commitmentExpires;
   const isOwner =
     !!inspection &&
-    !!address &&
-    inspection.owner.toLowerCase() === address.toLowerCase();
+    !!renderedAddress &&
+    inspection.owner.toLowerCase() === renderedAddress.toLowerCase();
   const parentReady =
     !!inspection &&
     isOwner &&
     inspection.attachedResolver !== zeroAddress &&
     inspection.attachedRegistry !== zeroAddress &&
-    inspection.parentAddress?.toLowerCase() === address?.toLowerCase();
+    inspection.parentAddress?.toLowerCase() === renderedAddress?.toLowerCase();
   const infrastructurePrepared =
     inspection?.resolverProxy === "verified" &&
     inspection?.registryProxy === "verified";
@@ -651,7 +665,7 @@ export function EnsFamilySetup() {
         ))}
       </div>
 
-      {!address ? (
+      {!renderedAddress ? (
         <div className="ens-family-connect">
           <Fingerprint size={26} />
           <div>
@@ -779,7 +793,7 @@ export function EnsFamilySetup() {
                   icon={<ShieldCheck size={18} />}
                   title="Wallet record"
                   description="Makes the parent name resolve back to the connected owner wallet."
-                  state={inspection.parentAddress?.toLowerCase() === address.toLowerCase() ? "connected" : "missing"}
+                  state={inspection.parentAddress?.toLowerCase() === renderedAddress?.toLowerCase() ? "connected" : "missing"}
                   address={inspection.parentAddress}
                 />
               </div>
@@ -817,7 +831,7 @@ export function EnsFamilySetup() {
                     <button className="button primary" disabled={busy} onClick={() => attach("resolver")}>Connect resolver</button>
                   ) : !newName && inspection.attachedRegistry === zeroAddress ? (
                     <button className="button primary" disabled={busy} onClick={() => attach("registry")}>Enable subnames</button>
-                  ) : !newName && inspection.parentAddress?.toLowerCase() !== address.toLowerCase() ? (
+                  ) : !newName && inspection.parentAddress?.toLowerCase() !== renderedAddress?.toLowerCase() ? (
                     <button className="button primary" disabled={busy} onClick={setParentRecord}>Connect wallet record</button>
                   ) : newName && tokenShortfall ? (
                     <button className="button primary" disabled={busy} onClick={mintTestPaymentToken}><Coins size={15} /> Mint test {inspection.symbol}</button>

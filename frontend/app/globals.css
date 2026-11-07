@@ -1687,7 +1687,7 @@ dd {
 }
 .builder-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 315px;
+  grid-template-columns: minmax(0, 1fr) 400px;
   gap: 16px;
   height: 640px;
   margin-top: 24px;
@@ -1890,6 +1890,70 @@ dd {
   border-color: #ddd;
   background: #f4f4f4;
 }
+.protocol-node.kind-beneficiary {
+  width: 250px;
+}
+.node-person-profile {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: start;
+  gap: 11px;
+  margin-top: 2px;
+}
+.node-person-avatar {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #d8e1dc;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #e4eee9, #f8fbf9);
+  color: #355e50;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.node-person-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.node-person-copy,
+.node-person-copy > strong,
+.node-person-copy > small {
+  display: block;
+  min-width: 0;
+}
+.node-person-copy > strong {
+  overflow: hidden;
+  color: #222;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-person-copy > small {
+  margin-top: 4px;
+  color: #707770;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.node-person-description {
+  display: -webkit-box !important;
+  overflow: hidden;
+  color: #4f5c55 !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.node-person-address {
+  display: inline-block;
+  margin-top: 5px;
+  color: #597267;
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
 .protocol-node.kind-emergency .node-symbol {
   color: var(--amber);
   border-color: #eedbb4;
@@ -1928,22 +1992,9 @@ dd {
 .react-flow .react-flow__controls-button:hover {
   background: #f5f5f5;
 }
-.react-flow .react-flow__minimap {
-  bottom: 10px;
-  right: 10px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  width: 130px;
-  height: 90px;
-}
-.react-flow .react-flow__minimap-svg {
-  width: 100%;
-  height: 100%;
-}
 .react-flow .react-flow__attribution {
   bottom: 4px;
-  right: 150px;
+  right: 4px;
   background: transparent;
   font-size: 9px;
   color: #707070;
@@ -2017,6 +2068,17 @@ dd {
 .identity-result dd,
 .identity-result dt {
   font-size: 12px;
+}
+.identity-result-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 20px;
+}
+.identity-grid-action {
+  align-self: start;
+  justify-self: end;
+  min-width: 220px;
+  margin-top: 37px;
 }
 .identity-section details {
   padding: 0 24px 24px;
@@ -2110,6 +2172,16 @@ dd {
   .identity-setup-progress,
   .identity-profile-fields {
     grid-template-columns: 1fr;
+  }
+  .identity-result-action {
+    padding-inline: 20px;
+  }
+  .identity-result-action .button,
+  .identity-grid-action {
+    width: 100%;
+    min-width: 0;
+    justify-self: stretch;
+    margin-top: 0;
   }
 }
 .identity-profile-panel .panel-heading {
@@ -2351,6 +2423,11 @@ dd {
 .two-column > .panel > .wallet-control {
   margin: 0 24px 24px;
 }
+.settings-wallet-panel {
+  position: relative;
+  z-index: 5;
+  overflow: visible;
+}
 .setup-steps {
   list-style: none;
   padding: 0 24px 12px;
@@ -2464,7 +2541,7 @@ dd {
     width: 10px;
   }
   .builder-layout {
-    grid-template-columns: minmax(0, 1fr) 285px;
+    grid-template-columns: minmax(0, 1fr) 360px;
   }
   .canvas-toolbar > span > .badge {
     display: none;
@@ -3283,7 +3360,7 @@ dd {
   padding: 22px;
   height: 100vh;
   width: 100vw;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr) 400px;
   margin: 0;
 }
 .transport-actions {
@@ -3291,6 +3368,9 @@ dd {
   flex-wrap: wrap;
   gap: 8px;
   margin: 14px 0;
+}
+.identity-section .transport-actions {
+  justify-content: flex-end;
 }
 .notification-symbol {
   display: flex;
@@ -3378,6 +3458,69 @@ dd {
   border-radius: 12px;
   padding: 12px;
 }
+.ens-workspace-shortcut {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8faf9;
+}
+.ens-workspace-shortcut-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dce6e1;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--action);
+}
+.ens-workspace-shortcut strong,
+.ens-workspace-shortcut small {
+  display: block;
+}
+.ens-workspace-shortcut strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.ens-workspace-shortcut small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+.ens-workspace-shortcut-inspector {
+  grid-template-columns: 38px minmax(0, 1fr) !important;
+  grid-template-areas:
+    "identity-icon identity-copy"
+    "identity-action identity-action";
+  align-items: start;
+}
+.ens-workspace-shortcut-inspector .ens-workspace-shortcut-icon {
+  grid-area: identity-icon;
+}
+.ens-workspace-shortcut-inspector .ens-workspace-shortcut-copy {
+  grid-area: identity-copy;
+  min-width: 0;
+}
+.ens-workspace-shortcut-inspector .button {
+  grid-area: identity-action;
+  width: 100%;
+  justify-content: center;
+}
+@media (max-width: 680px) {
+  .ens-workspace-shortcut {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .ens-workspace-shortcut .button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
 .beneficiary-onboarding .panel {
   padding: 16px;
   margin: 12px 0;
@@ -3451,6 +3594,7 @@ dd {
   padding-top: 20px;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
 }
 .alert-context {
   display: grid;

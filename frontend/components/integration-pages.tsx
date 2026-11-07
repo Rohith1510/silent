@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Fingerprint, Radio, ArrowUpRight } from "lucide-react";
 import { useConnection } from "wagmi";
 import { ensV2Root } from "@/lib/ens";
@@ -21,6 +21,7 @@ import {
   Notice,
   PageHeader,
   Panel,
+  MessageDialog,
   WalletButton,
 } from "./ui";
 
@@ -31,6 +32,7 @@ export function PrivacyPage() {
   const [ensStatus, setEnsStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [publicRpcPrompt, setPublicRpcPrompt] = useState(false);
   const runProbe = async (ens = false) => {
     if (!client) return;
     setBusy(true);
@@ -132,14 +134,7 @@ export function PrivacyPage() {
             {privacy.mode !== "public" && (
               <button
                 className="button subtle"
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Use public RPC? The RPC provider may associate your IP address with vault queries. The app will label this as public mode.",
-                    )
-                  )
-                    choosePublic();
-                }}
+                onClick={() => setPublicRpcPrompt(true)}
               >
                 Use public RPC explicitly
               </button>
@@ -279,12 +274,33 @@ export function PrivacyPage() {
           {error}
         </Notice>
       )}
+      <MessageDialog
+        open={publicRpcPrompt}
+        onClose={() => setPublicRpcPrompt(false)}
+        title="Continue with public RPC?"
+        primaryLabel="Use public RPC"
+        secondaryLabel="Keep Anon-RPC"
+        onPrimary={choosePublic}
+      >
+        <p>
+          The RPC provider may associate your IP address with your vault reads.
+          SilentSovereign will clearly label the session as public mode, and
+          you can retry Anon-RPC at any time.
+        </p>
+      </MessageDialog>
     </>
   );
 }
 
 export function SettingsPage() {
   const { address, chainId } = useConnection();
+  const hydrated = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const renderedAddress = hydrated ? address : undefined;
+  const renderedChainId = hydrated ? chainId : undefined;
   return (
     <>
       <PageHeader
@@ -293,6 +309,7 @@ export function SettingsPage() {
       />
       <div className="two-column">
         <Panel
+          className="settings-wallet-panel"
           title="Network & wallet"
           description="This MVP supports Sepolia and isolated local tests."
         >
@@ -305,11 +322,13 @@ export function SettingsPage() {
             </div>
             <div>
               <dt>Wallet network</dt>
-              <dd>{chainId || "Not connected"}</dd>
+              <dd>{renderedChainId || "Not connected"}</dd>
             </div>
             <div>
               <dt>Wallet address</dt>
-              <dd className="address-wrap">{address || "Not connected"}</dd>
+              <dd className="address-wrap">
+                {renderedAddress || "Not connected"}
+              </dd>
             </div>
             <div>
               <dt>Network selection</dt>
