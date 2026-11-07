@@ -7,7 +7,7 @@
   "executionMode": "observe",
   "notifications": {
     "enabled": true,
-    "endpoint": "https://mount-officially-neon-auctions.trycloudflare.com/api/notifications/dispatch"
+    "endpoint": "https://silent-nu.vercel.app/api/notifications/dispatch"
   },
   "startIndex": 0,
   "batchSize": 3,

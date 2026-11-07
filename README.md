@@ -1,8 +1,18 @@
-# SilentSovereign
+# silent
 
 A noncustodial inheritance and emergency recovery MVP for ETHGlobal Mumbai 2026. Built in the existing `frontend/` Next.js application, with isolated Solidity vaults and honest integration status.
 
 **Unaudited. Testnet only. Do not deposit real-value assets.** A working local test suite is not a security audit or proof of a live sponsor deployment.
+
+## Partner prize integrations — judges start here
+
+The [partner integration index](https://github.com/Rohith1510/silent/blob/main/docs/partner-integrations/README.md) maps each sponsor technology to the exact user flow, implementation lines, security boundary and live evidence:
+
+- [ENSv2 — beneficiary identity, subnames, profiles and pinned authorization](https://github.com/Rohith1510/silent/blob/main/docs/partner-integrations/ensv2.md)
+- [Ethereum Foundation Anon-RPC — private-by-default application reads](https://github.com/Rohith1510/silent/blob/main/docs/partner-integrations/anon-rpc.md)
+- [Chainlink CRE — real vault monitoring and external notification orchestration](https://github.com/Rohith1510/silent/blob/main/docs/partner-integrations/chainlink-cre.md)
+
+[View the captured Chainlink CRE CLI simulation](https://raw.githubusercontent.com/Rohith1510/silent/main/frontend/public/chainlink_workflow.png).
 
 ## Start locally
 
@@ -28,9 +38,9 @@ Open http://localhost:3000. Without a configured factory, the app shows **Contra
 - Up to 16 beneficiaries, 16 guardians and 16 tracked assets including native ETH. Allocations total 10,000 basis points. No guardians means recovery disabled, not unguarded recovery.
 - Shared phased release schedule; accelerated remainder requires an additional delay and a fresh guardian quorum. Both modes deduct from the same ledger.
 - Frozen accounted-asset snapshot at authorization, deterministic dust allocation, reentrancy protection and OpenZeppelin SafeERC20. Config/deposits/withdrawals freeze while pending.
-- React Flow custom nodes, drag/connect/delete, inspector fields, branching beneficiaries, validation, minimap, zoom and auto-layout/restore. Unsupported graph edits cannot be saved. Saved plans reconcile from actual contract reads.
+- React Flow custom nodes, drag/connect/delete, inspector fields, branching beneficiaries, validation, zoom and auto-layout/restore. Unsupported graph edits cannot be saved. Saved plans reconcile from actual contract reads.
 - Landing, dashboard, guided vault creation, builder, vault details, beneficiaries/identity explorer, recovery, activity, privacy/integrations and settings.
-- ENS normalization, real forward/primary-name resolution, resolver/ownership inspection where supported, onchain v2 registry discovery and permission-checked subname registration. Vaults pin the resolved address. Offchain CCIP gateways are deliberately disabled.
+- Full guided ENSv2 Sepolia journey: parent `.eth` search and live pricing, official test-token funding, exact approval, registrar commit/reveal, deterministic resolver and UserRegistry deployment with factory-provenance checks, existing-name connection, permission-checked beneficiary subnames, address/profile records and drift monitoring. Vaults pin the resolved address. Offchain CCIP gateways are deliberately disabled.
 - Official `@anon-rpc/browser-harness` with a Sepolia Nox specifier, sandbox/worker lifecycle, chain probe, isolated read transport and explicit public/anonymous/failed states. Wallet signing stays separate.
 - Official Chainlink CRE TypeScript workflow: cron and EVM-log handlers, actual contract calls, DON-report encoding, forwarder delivery adapter, per-request nonce checks, bounded enumeration, execution logs and retry behavior.
 
@@ -38,10 +48,10 @@ Open http://localhost:3000. Without a configured factory, the app shows **Contra
 
 ### 2026-10-30 product update
 
-- Read-only vault links (`/dashboard#vault=0x...`) require no wallet connection. The builder includes ENSv2 onboarding, address-record writes, scoped resolver grants/revocations, parent-expiry checks and local identity-drift warnings. Writes require wallet approval and receipts.
-- Anonymous reads default on Sepolia. Privacy offers official Nox/Nym workers, retry, diagnostics and explicit public-mode consent. Live chain-ID responses were obtained, but subsequent data reads timed out: reliable anonymous vault monitoring is **not yet verified**.
-- Optional email alerts use wallet-signed login, encrypted Supabase contacts, verified consent, deduplicated Resend sends and signed delivery webhooks. The hosted migration and sender credentials remain required. No email was sent during implementation.
-- CRE has observe/email mode without a receiver and the existing guarded transition mode. It uses official SDK HTTP capabilities and a secret manifest. No live automation is claimed.
+- Read-only vault links (`/dashboard#vault=0x...`) require no wallet connection. Beneficiaries includes in-app ENSv2 parent acquisition and infrastructure setup, subname onboarding, address/profile writes, scoped resolver grants/revocations, expiry checks and local identity-drift warnings. Writes require wallet approval and confirmed receipts.
+- Anonymous reads default on Sepolia. Privacy uses the official Nox/Nym workers, retry diagnostics and explicit public-mode consent. User-run browser evidence shows the Nox tunnel and real Sepolia application reads; availability still depends on the external anonymity network.
+- Optional email alerts use wallet-signed login, encrypted Supabase contacts, verified consent, deduplicated Resend sends and signed delivery webhooks. Hosted notification emails were received during user testing; sender-domain configuration still determines deliverability and spam placement.
+- CRE has observe/email mode without a receiver and an optional guarded transition mode. An official CLI simulation inspected two real Sepolia vaults and received HTTP 200 twice from the deployed notification API. Continuous DON deployment is not claimed.
 - See [notification setup](docs/notifications.md), [classical prize fit](docs/prize-fit.md), and [verification](docs/verification.md). Existing frontend `.env.local` and CRE secrets are not overwritten.
 
 See [docs/verification.md](docs/verification.md) for the exact checked results and remaining limitations. Sponsor code being present does not establish a successful public-network integration.
@@ -51,10 +61,10 @@ See [docs/verification.md](docs/verification.md) for the exact checked results a
 | Solidity | solc 0.8.24 compilation and 21 contract tests | Deploy and independently verify source in Remix/Sepolia |
 | Frontend | TypeScript, lint, production build; configuration/security/Postgres tests | Browser wallet and configured factory |
 | Protocol demo | Isolated chain browser suite in `e2e/` | Repeat with actual Sepolia wallets |
-| ENSv2 | Official APIs implemented; live Sepolia v2 marker/root read verified | Existing Sepolia names/records and parent registrar permission; writes untested |
-| Anon-RPC | Nox/Nym chain-ID responses; subsequent data reads timed out | Reliable balance/contract/event reads through the anonymity network |
-| CRE | 12 official SDK/policy tests, typed HTTP+EVM workflow and WASM compilation | Official CLI simulation; real email API; separate access for deployed automation |
-| Email | Real API implementation, encryption and Postgres permissions/leases tested locally | Hosted migration, Supabase key, Resend sender/API/webhook setup |
+| ENSv2 | Complete in-app flow plus user-confirmed Sepolia beneficiary subname and Ethereum-record creation | Capture the signed receipts in the final demo; Sepolia ENSv2 deployments can reset |
+| Anon-RPC | Official Nox worker tunnel and real Sepolia application responses observed in the browser | Repeat the live probe during judging; external transport latency/availability is not controlled by the app |
+| CRE | Official CLI simulation compiled and inspected two real vaults; two deployed notification calls returned HTTP 200 | Partition the third vault to stay below the simulation read quota; DON deployment remains access-gated |
+| Email | Hosted notification emails received during user testing; encryption, consent, leases and webhook handling implemented | Keep the verified sender/domain, API key and webhook configuration active for the demo |
 
 ## Test commands
 
